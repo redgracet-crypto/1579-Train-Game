@@ -20,7 +20,6 @@
     button:disabled{opacity:.45;cursor:not-allowed}
     canvas{width:100%;height:100%;display:block;touch-action:none}
 
-    /* Overlays */
     .overlay{
       position:fixed;inset:0;display:none;align-items:center;justify-content:center;
       background:rgba(0,0,0,.58);backdrop-filter:blur(6px);z-index:9999;padding:18px
@@ -55,7 +54,6 @@
     }
     .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
 
-    /* Leaderboard list */
     #lbList{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px 0}
     .lbRow{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:10px 12px;font-size:14px}
     .lbRow .left{display:flex;gap:10px;align-items:center}
@@ -89,16 +87,14 @@
   <div class="card">
     <h2>🎮 Controls</h2>
     <div class="sub">
-      This is a quick daily reflex gauntlet. You get <b>3 lives</b> and <b>10 seconds</b>.
-      Score = how many obstacles you clear. <br/>
-      <b>Mobile works</b>: tap the game area to jump. (If your phone browser is spicy, rotate landscape.)
+      <b>3 lives</b> • <b>10 seconds</b> • score = obstacles cleared. <br/>
+      Desktop: <b>Space</b> or click. Mobile: <b>tap</b> anywhere on the game area.
     </div>
 
     <div class="row">
       <div class="pill"><span class="key">Space</span><span>Jump</span></div>
       <div class="pill"><span class="key">Click</span><span>Jump</span></div>
       <div class="pill"><span class="key">Tap</span><span>Jump (mobile)</span></div>
-      <div class="pill"><span class="key">R</span><span>Restart (only if not checked-in already)</span></div>
     </div>
 
     <div class="sub" style="margin-top:10px">
@@ -106,7 +102,7 @@
     </div>
 
     <div class="actions">
-      <button id="controlsClose">Close</button>
+      <button id="controlsClose">Close & Play</button>
     </div>
   </div>
 </div>
@@ -136,6 +132,18 @@
   const RUN_SECONDS = 10.0;
   const MAX_LIVES = 3;
 
+  // === SPRITE SHEET CONFIG ===
+  // You can tweak these numbers later to perfectly crop your SpriteSheet2.png
+  // Coordinates are in *pixels* inside SpriteSheet2.png
+  const SPRITES = {
+    elf:      { x:  40, y: 320, w: 260, h: 220 }, // <-- adjust
+    spike:    { x: 450, y: 340, w: 260, h: 200 }, // <-- adjust
+    snowman:  { x: 780, y: 250, w: 260, h: 330 }, // <-- adjust
+  };
+
+  // If you want the elf to look like it's "running", we can later make multiple frames.
+  // For now: one cute static sprite works great.
+
   // UI refs
   const msgEl = document.getElementById("msg");
   const userEl = document.getElementById("userLabel");
@@ -150,18 +158,13 @@
 
   const controlsOverlay = document.getElementById("controlsOverlay");
   const controlsClose = document.getElementById("controlsClose");
-  controlsBtn.addEventListener("click", () => controlsOverlay.style.display = "flex");
-  controlsClose.addEventListener("click", () => controlsOverlay.style.display = "none");
-  controlsOverlay.addEventListener("click", (e)=>{ if(e.target===controlsOverlay) controlsOverlay.style.display="none"; });
 
   const lbOverlay = document.getElementById("lbOverlay");
   const lbClose = document.getElementById("lbClose");
   const lbList = document.getElementById("lbList");
   const lbSub = document.getElementById("lbSub");
-  lbClose.addEventListener("click", () => lbOverlay.style.display = "none");
-  lbOverlay.addEventListener("click", (e)=>{ if(e.target===lbOverlay) lbOverlay.style.display="none"; });
 
-  // Canvas setup
+  // Canvas
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
 
@@ -173,12 +176,26 @@
   window.addEventListener("resize", resize);
   resize();
 
-  // Background image
+  // Images
   const bgImg = new Image();
   bgImg.src = "background.png";
-  bgImg.onload = () => drawScene(0);
 
-  // ========= JSONP (for GitHub Pages) =========
+  const sheet = new Image();
+  sheet.src = "SpriteSheet2.png";
+
+  let assetsReady = false;
+  Promise.all([
+    new Promise(res => bgImg.onload = res),
+    new Promise(res => sheet.onload = res),
+  ]).then(() => {
+    assetsReady = true;
+    drawScene(0);
+    msgEl.textContent = "Ready.";
+  }).catch(() => {
+    msgEl.textContent = "⚠️ Couldn’t load images. Check filenames: background.png and SpriteSheet2.png";
+  });
+
+  // ========= JSONP =========
   function jsonp(url){
     return new Promise((resolve, reject) => {
       const cbName = "cb_" + Math.random().toString(36).slice(2);
@@ -241,36 +258,308 @@
     return Math.floor((nowMid - startMid)/(24*60*60*1000)) + 1;
   }
 
-  // Gate UI (no auto-overwrite after run starts)
+  // Gate ticker
   let gateTicker = null;
-  function startGateTicker(){
+  function startGateTicker(){ stopGateTicker(); gateTicker = setInterval(updateGateUI, 15000); }
+  function stopGateTicker(){ if (gateTicker) clearInterval(gateTicker); gateTicker = null; }
+
+  // ========= Game state =========
+  let running = false;
+  let paused = false;     // <- new
+  let rafId = 0;
+
+  let checkedIn = false;
+  let submitted = false;
+
+  let lives = MAX_LIVES;
+  let score = 0;
+
+  let startTs = 0;
+  let lastTs = 0;
+  let remaining = RUN_SECONDS;
+
+  // PRNG
+  function mulberry32(seed){
+    let a = seed >>> 0;
+    return function(){
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function seedFromDay(d){
+    const s = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
+    return s ^ 0xA5B3571;
+  }
+  let rand = mulberry32(seedFromDay(new Date()));
+
+  // Player (normalized)
+  const player = { x:0.18, y:0.78, vy:0, onGround:true };
+
+  // Obstacles
+  let obstacles = [];
+  let spawnT = 0;
+  let difficulty = 0;
+
+  function setScore(n){ score=n; scoreEl.textContent = String(score); }
+  function setLives(n){ lives=n; livesEl.textContent = String(lives); }
+  function setTime(sec){ timeEl.textContent = sec.toFixed(1); }
+
+  function resetRun(){
+    setLives(MAX_LIVES);
+    setScore(0);
+    remaining = RUN_SECONDS;
+    setTime(remaining);
+
+    player.y = 0.82 - 0.06;
+    player.vy = 0;
+    player.onGround = true;
+
+    obstacles = [];
+    spawnT = 0;
+    difficulty = 0;
+
+    submitted = false;
+    startTs = 0;
+    lastTs = 0;
+  }
+
+  // ========= Overlays -> pause logic =========
+  function setControlsOpen(open){
+    controlsOverlay.style.display = open ? "flex" : "none";
+    if (running){
+      paused = open;
+      if (paused){
+        msgEl.textContent = "⏸ Paused — close Controls to continue.";
+      } else {
+        msgEl.textContent = "🚂 GO!";
+        // resume loop
+        lastTs = performance.now();
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(step);
+      }
+    }
+  }
+
+  controlsBtn.addEventListener("click", () => setControlsOpen(true));
+  controlsClose.addEventListener("click", () => setControlsOpen(false));
+  controlsOverlay.addEventListener("click", (e)=>{ if(e.target===controlsOverlay) setControlsOpen(false); });
+
+  lbClose.addEventListener("click", () => lbOverlay.style.display = "none");
+  lbOverlay.addEventListener("click", (e)=>{ if(e.target===lbOverlay) lbOverlay.style.display="none"; });
+
+  // ========= Drawing helpers =========
+  function drawBackground(){
+    const W=canvas.width, H=canvas.height;
+    if(bgImg.complete){
+      const s = Math.max(W/bgImg.width, H/bgImg.height);
+      const w=bgImg.width*s, h=bgImg.height*s;
+      ctx.drawImage(bgImg, (W-w)/2, (H-h)/2, w, h);
+    } else {
+      ctx.fillStyle = "#0b1020";
+      ctx.fillRect(0,0,W,H);
+    }
+  }
+
+  function drawSprite(key, dx, dy, dw, dh){
+    const sp = SPRITES[key];
+    if (!sp || !sheet.complete) return;
+    ctx.drawImage(sheet, sp.x, sp.y, sp.w, sp.h, dx, dy, dw, dh);
+  }
+
+  function drawScene(){
+    const W=canvas.width, H=canvas.height;
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,W,H);
+
+    drawBackground();
+    ctx.fillStyle = "rgba(0,0,0,.14)";
+    ctx.fillRect(0,0,W,H);
+
+    // snowman dressing (right side, near ground)
+    const groundY = Math.floor(H*0.82);
+    drawSprite("snowman", Math.floor(W*0.82), Math.floor(groundY - H*0.30), Math.floor(W*0.14), Math.floor(H*0.30));
+
+    // ground line
+    ctx.strokeStyle = "rgba(255,255,255,.18)";
+    ctx.lineWidth = Math.max(2, Math.floor(devicePixelRatio*1.5));
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    ctx.lineTo(W, groundY);
+    ctx.stroke();
+
+    // player sprite
+    const pw = Math.max(34*devicePixelRatio, W*0.06);
+    const ph = Math.max(34*devicePixelRatio, H*0.10);
+    const px = W * player.x;
+    const py = H * player.y;
+    drawSprite("elf", px, py, pw, ph);
+
+    // obstacles (spikes)
+    obstacles.forEach(o=>{
+      const ox = W * o.x;
+      const oy = H * o.y;
+      const ow = W * o.w;
+      const oh = H * o.h;
+      drawSprite("spike", ox, oy, ow, oh);
+    });
+
+    // paused hint
+    if (running && paused){
+      ctx.fillStyle = "rgba(0,0,0,.35)";
+      ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = "rgba(255,255,255,.92)";
+      ctx.font = `${Math.max(16*devicePixelRatio, 20)}px system-ui`;
+      ctx.fillText("Paused — close Controls to continue", Math.floor(W*0.04), Math.floor(H*0.10));
+    }
+  }
+
+  // ========= Mechanics =========
+  function jump(){
+    if (!running || paused) return;
+    if (player.onGround){
+      player.vy = -1.05;
+      player.onGround = false;
+    }
+  }
+
+  function aabb(ax,ay,aw,ah,bx,by,bw,bh){
+    return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+  }
+
+  function spawnObstacle(){
+    const baseW = 0.020 + 0.010 * (1 - Math.min(1, difficulty));
+    const w = Math.max(0.012, baseW + (rand()-0.5)*0.006);
+
+    const h = 0.10 + rand()*0.18 + difficulty*0.06;
+    const height = Math.min(0.34, Math.max(0.10, h));
+
+    obstacles.push({
+      x: 1.05,
+      y: 0.82 - height,
+      w,
+      h: height,
+      passed: false,
+    });
+  }
+
+  function step(ts){
+    if (!running) return;
+    if (paused){
+      drawScene();
+      rafId = requestAnimationFrame(step);
+      return;
+    }
+
+    if (!startTs){ startTs = ts; lastTs = ts; }
+    const dt = Math.min(0.035, (ts - lastTs) / 1000);
+    lastTs = ts;
+
+    remaining = Math.max(0, RUN_SECONDS - (ts - startTs)/1000);
+    setTime(remaining);
+
+    const t = 1 - (remaining / RUN_SECONDS);
+    difficulty = Math.min(1, 0.15 + t*0.95);
+
+    // gravity
+    player.vy += 2.45 * dt;
+    player.y += player.vy * dt;
+
+    const groundTop = 0.82 - 0.10; // slightly higher because sprite is taller
+    if (player.y >= groundTop){
+      player.y = groundTop;
+      player.vy = 0;
+      player.onGround = true;
+    }
+
+    const speed = 0.62 + difficulty*0.95;
+
+    spawnT -= dt;
+    if (spawnT <= 0){
+      spawnObstacle();
+      const minGap = 0.45 - difficulty*0.22;
+      const jitter = (rand()*0.22);
+      spawnT = Math.max(0.18, minGap + jitter);
+    }
+
+    obstacles.forEach(o => o.x -= speed * dt);
+
+    // collision + scoring (hitbox smaller than sprite)
+    const px = player.x + 0.010;
+    const py = player.y + 0.018;
+    const pw = 0.035;
+    const ph = 0.070;
+
+    for (const o of obstacles){
+      if (!o.passed && o.x + o.w < player.x){
+        o.passed = true;
+        setScore(score + 1);
+      }
+
+      // spike hitbox slightly inset too
+      const bx = o.x + 0.004;
+      const by = o.y + 0.010;
+      const bw = Math.max(0.01, o.w - 0.008);
+      const bh = Math.max(0.01, o.h - 0.014);
+
+      if (aabb(px,py,pw,ph, bx,by,bw,bh)){
+        setLives(lives - 1);
+        player.vy = -0.75;
+        player.onGround = false;
+        o.x = player.x - o.w - 0.02;
+
+        if (lives <= 0){
+          endRun(false);
+          return;
+        }
+      }
+    }
+
+    obstacles = obstacles.filter(o => o.x > -0.25);
+
+    drawScene();
+
+    if (remaining <= 0){
+      endRun(true);
+      return;
+    }
+
+    rafId = requestAnimationFrame(step);
+  }
+
+  async function endRun(survived){
+    running = false;
+    paused = false;
     stopGateTicker();
-    gateTicker = setInterval(updateGateUI, 15000);
-  }
-  function stopGateTicker(){
-    if (gateTicker) clearInterval(gateTicker);
-    gateTicker = null;
-  }
+    startBtn.disabled = true;
 
-  function updateGateUI(){
     const now = new Date();
-    bootstrapUser();
+    const day = ymd(now);
+    const name = sanitizeName(getUsername()) || "Guest";
+    const timeTaken = RUN_SECONDS - remaining;
 
-    if (now < START){
-      msgEl.textContent = "🚂 Not open yet. Opens 12/20/2025 at 00:01.";
-      startBtn.disabled = true;
-      dayEl.textContent = "—";
+    const flavor = survived ? "✅ Run complete!" : "💥 Wiped out!";
+    msgEl.textContent = `${flavor} Submitting score…`;
+
+    if (submitted){
+      msgEl.textContent = `${flavor} (Already submitted.)`;
+      startGateTicker();
       return;
     }
-    if (now > END){
-      msgEl.textContent = "❄️ Event ended. Closed after 12/30/2025 23:59.";
-      startBtn.disabled = true;
-      dayEl.textContent = "—";
-      return;
+
+    try{
+      const r = await submitScore(name, day, score, timeTaken);
+      submitted = true;
+      msgEl.textContent = (r && r.ok)
+        ? `🏁 ${flavor} Score: ${score}. Posted to leaderboard.`
+        : `⚠️ ${flavor} Score: ${score}. Submit failed (server).`;
+    }catch{
+      msgEl.textContent = `⚠️ ${flavor} Score: ${score}. Submit failed (network).`;
     }
-    dayEl.textContent = `${dayIndex(now)} / 11`;
-    if (!running) msgEl.textContent = "🎁 One play per name per day. Good luck.";
-    startBtn.disabled = running ? true : false;
+
+    await openLeaderboard();
+    startGateTicker();
   }
 
   // ========= Leaderboard =========
@@ -303,321 +592,32 @@
   }
   leaderBtn.addEventListener("click", openLeaderboard);
 
-  // ========= Game State =========
-  let running = false;
-  let checkedIn = false;
-  let submitted = false;
+  // ========= Start flow (wait for controls close) =========
+  function waitForControlsClose(){
+    return new Promise(resolve => {
+      // If already closed, resolve immediately
+      if (controlsOverlay.style.display !== "flex") return resolve();
 
-  let lives = MAX_LIVES;
-  let score = 0;
-
-  let startTs = 0;
-  let lastTs = 0;
-  let remaining = RUN_SECONDS;
-
-  // Player
-  const player = {
-    x: 0.18,   // normalized
-    y: 0.78,
-    vy: 0,
-    onGround: true,
-  };
-
-  // Obstacles (normalized coords)
-  let obstacles = [];
-  let spawnT = 0;
-  let difficulty = 0;
-
-  // PRNG so daily “feel” is consistent
-  function mulberry32(seed){
-    let a = seed >>> 0;
-    return function(){
-      a |= 0; a = a + 0x6D2B79F5 | 0;
-      let t = Math.imul(a ^ a >>> 15, 1 | a);
-      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
-  }
-  function seedFromDay(d){
-    // d is Date
-    const s = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
-    return s ^ 0xA5B3571;
-  }
-  let rand = mulberry32(seedFromDay(new Date()));
-
-  function setScore(n){ score = n; scoreEl.textContent = String(score); }
-  function setLives(n){ lives = n; livesEl.textContent = String(lives); }
-  function setTime(sec){ timeEl.textContent = sec.toFixed(1); }
-
-  function resetRun(){
-    setLives(MAX_LIVES);
-    setScore(0);
-    remaining = RUN_SECONDS;
-    setTime(remaining);
-
-    player.y = 0.78;
-    player.vy = 0;
-    player.onGround = true;
-
-    obstacles = [];
-    spawnT = 0;
-    difficulty = 0;
-
-    submitted = false;
-  }
-
-  // ========= Controls (desktop + mobile) =========
-  function jump(){
-    if (!running) return;
-    if (player.onGround){
-      player.vy = -1.05; // jump impulse (normalized units/sec)
-      player.onGround = false;
-    }
-  }
-
-  window.addEventListener("keydown", (e)=>{
-    if (e.code === "Space"){
-      e.preventDefault();
-      jump();
-    }
-    if (e.key === "r" || e.key === "R"){
-      // restart only if they haven't checked in (safety)
-      if (!running && !checkedIn) {
-        msgEl.textContent = "Ready.";
-        updateGateUI();
-      }
-    }
-  });
-
-  canvas.addEventListener("pointerdown", (e)=>{
-    // Tap/click anywhere in game area to jump
-    e.preventDefault();
-    jump();
-  }, { passive:false });
-
-  // ========= Collision helpers =========
-  function aabb(ax,ay,aw,ah,bx,by,bw,bh){
-    return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
-  }
-
-  // ========= Drawing =========
-  function drawBackground(){
-    const W=canvas.width, H=canvas.height;
-    if(bgImg.complete){
-      const s = Math.max(W/bgImg.width, H/bgImg.height);
-      const w=bgImg.width*s, h=bgImg.height*s;
-      ctx.drawImage(bgImg, (W-w)/2, (H-h)/2, w, h);
-    } else {
-      ctx.fillStyle = "#0b1020";
-      ctx.fillRect(0,0,W,H);
-    }
-  }
-
-  function drawScene(dt){
-    const W=canvas.width, H=canvas.height;
-    ctx.save();
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.clearRect(0,0,W,H);
-    drawBackground();
-
-    // Arena overlay (subtle)
-    ctx.fillStyle = "rgba(0,0,0,.18)";
-    ctx.fillRect(0,0,W,H);
-
-    // Ground line
-    const groundY = Math.floor(H*0.82);
-    ctx.strokeStyle = "rgba(255,255,255,.20)";
-    ctx.lineWidth = Math.max(2, Math.floor(devicePixelRatio*1.5));
-    ctx.beginPath();
-    ctx.moveTo(0, groundY);
-    ctx.lineTo(W, groundY);
-    ctx.stroke();
-
-    // Player (a bright “ticket” rectangle)
-    const px = W * player.x;
-    const py = H * player.y;
-    const pw = Math.max(14*devicePixelRatio, W*0.03);
-    const ph = Math.max(18*devicePixelRatio, H*0.06);
-
-    ctx.fillStyle = "rgba(255,235,180,.95)";
-    ctx.fillRect(px, py, pw, ph);
-    ctx.strokeStyle = "rgba(0,0,0,.35)";
-    ctx.lineWidth = Math.max(2, devicePixelRatio);
-    ctx.strokeRect(px, py, pw, ph);
-
-    // Obstacles (dark “ice spikes”)
-    obstacles.forEach(o=>{
-      const ox = W * o.x;
-      const oy = H * o.y;
-      const ow = W * o.w;
-      const oh = H * o.h;
-
-      ctx.fillStyle = "rgba(40,180,255,.85)";
-      ctx.fillRect(ox, oy, ow, oh);
-      ctx.strokeStyle = "rgba(0,0,0,.35)";
-      ctx.strokeRect(ox, oy, ow, oh);
-    });
-
-    // Minimal prompt
-    if (!running){
-      ctx.fillStyle = "rgba(255,255,255,.85)";
-      ctx.font = `${Math.max(14*devicePixelRatio, 18)}px system-ui`;
-      ctx.fillText("Tap / Click / Space to Jump", Math.floor(W*0.03), Math.floor(H*0.08));
-    }
-
-    ctx.restore();
-  }
-
-  // ========= Game Loop =========
-  function spawnObstacle(){
-    // difficulty increases over time -> faster + narrower gaps
-    // obstacle is a vertical pillar from ground up, forcing jump timing
-    const baseW = 0.018 + 0.008 * (1 - Math.min(1, difficulty));
-    const w = Math.max(0.012, baseW + (rand()-0.5)*0.006);
-
-    // height varies; too tall makes you jump earlier, too short is bait
-    const h = 0.10 + rand()*0.18 + difficulty*0.06;
-    const height = Math.min(0.34, Math.max(0.10, h));
-
-    obstacles.push({
-      x: 1.05,
-      y: 0.82 - height,
-      w,
-      h: height,
-      passed: false,
-    });
-  }
-
-  function step(ts){
-    if (!running) return;
-
-    if (!startTs){ startTs = ts; lastTs = ts; }
-    const dt = Math.min(0.035, (ts - lastTs) / 1000);
-    lastTs = ts;
-
-    // time
-    remaining = Math.max(0, RUN_SECONDS - (ts - startTs)/1000);
-    setTime(remaining);
-
-    // difficulty ramp
-    const t = 1 - (remaining / RUN_SECONDS); // 0 -> 1
-    difficulty = Math.min(1, 0.15 + t*0.95);
-
-    // gravity & jump
-    player.vy += 2.45 * dt; // gravity
-    player.y += player.vy * dt;
-
-    const groundTop = 0.82 - 0.06; // player height-ish
-    if (player.y >= groundTop){
-      player.y = groundTop;
-      player.vy = 0;
-      player.onGround = true;
-    }
-
-    // scrolling speed (mean)
-    const speed = 0.62 + difficulty*0.95; // normalized units/sec
-
-    // spawn logic: variable cadence, tighter with difficulty
-    spawnT -= dt;
-    if (spawnT <= 0){
-      spawnObstacle();
-      const minGap = 0.45 - difficulty*0.22;       // seconds between spawns
-      const jitter = (rand()*0.22);
-      spawnT = Math.max(0.18, minGap + jitter);
-    }
-
-    // update obstacles
-    obstacles.forEach(o => o.x -= speed * dt);
-
-    // collision + scoring
-    const W = canvas.width, H = canvas.height;
-    const px = player.x;
-    const py = player.y;
-    const pw = 0.03;
-    const ph = 0.06;
-
-    for (const o of obstacles){
-      // passed for score
-      if (!o.passed && o.x + o.w < px){
-        o.passed = true;
-        setScore(score + 1);
-      }
-
-      // collision (AABB)
-      if (aabb(px,py,pw,ph, o.x,o.y,o.w,o.h)){
-        // hit: lose a life and "phase" past it slightly
-        setLives(lives - 1);
-        // bounce up slightly to give chance not to chain-hit
-        player.vy = -0.75;
-        player.onGround = false;
-        // shove obstacle behind player so it doesn't instantly re-hit
-        o.x = px - o.w - 0.02;
-
-        if (lives <= 0){
-          endRun(false);
-          return;
+      const handler = () => {
+        // When it becomes hidden, resolve
+        if (controlsOverlay.style.display !== "flex") {
+          controlsClose.removeEventListener("click", handler);
+          resolve();
         }
-      }
-    }
-
-    // cleanup
-    obstacles = obstacles.filter(o => o.x > -0.25);
-
-    // draw
-    drawScene(dt);
-
-    if (remaining <= 0){
-      endRun(true);
-      return;
-    }
-
-    requestAnimationFrame(step);
+      };
+      controlsClose.addEventListener("click", handler);
+    });
   }
 
-  async function endRun(survived){
-    running = false;
-    stopGateTicker();
-    startBtn.disabled = true;
-
-    const now = new Date();
-    const day = ymd(now);
-    const name = sanitizeName(getUsername()) || "Guest";
-    const timeTaken = RUN_SECONDS - remaining;
-
-    const flavor = survived ? "✅ Run complete!" : "💥 Wiped out!";
-    msgEl.textContent = `${flavor} Submitting score…`;
-
-    if (submitted){
-      msgEl.textContent = `${flavor} (Already submitted.)`;
-      startGateTicker();
-      return;
-    }
-
-    try{
-      const r = await submitScore(name, day, score, timeTaken);
-      submitted = true;
-
-      if (r && r.ok){
-        msgEl.textContent = `🏁 ${flavor} Score: ${score}. Posted to leaderboard.`;
-      } else {
-        msgEl.textContent = `⚠️ ${flavor} Score: ${score}. Submit failed (server).`;
-      }
-    }catch{
-      msgEl.textContent = `⚠️ ${flavor} Score: ${score}. Submit failed (network).`;
-    }
-
-    await openLeaderboard();
-    startGateTicker();
-  }
-
-  // ========= Start Flow =========
   async function startDailyRun(){
     const now = new Date();
     if (!inWindow(now)) { updateGateUI(); return; }
+    if (!assetsReady){
+      msgEl.textContent = "⏳ Loading images…";
+      return;
+    }
 
     bootstrapUser();
-    controlsOverlay.style.display = "flex"; // show controls once before run
-    // Don’t force them to close; they can close anytime
     const name = sanitizeName(getUsername()) || "Guest";
     const day = ymd(now);
 
@@ -640,15 +640,22 @@
       }
 
       checkedIn = true;
-      submitted = false;
       resetRun();
       running = true;
-
-      // stop the gate message overwriting during play
+      paused = true; // <- start paused until controls is closed
       stopGateTicker();
 
-      msgEl.textContent = `🚂 GO, ${name} — Tap/Click/Space to jump!`;
-      requestAnimationFrame(step);
+      // Show controls and WAIT until they close it
+      setControlsOpen(true);
+      msgEl.textContent = `⏸ Ready, ${name}. Close Controls to start!`;
+
+      await waitForControlsClose();
+
+      // Start for real
+      paused = false;
+      msgEl.textContent = `🚂 GO, ${name}! Tap/Click/Space to jump.`;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(step);
 
     }catch{
       msgEl.textContent = "⚠️ Network error. Try again.";
@@ -657,12 +664,57 @@
   }
   startBtn.addEventListener("click", startDailyRun);
 
+  // Pointer + keyboard jump (ignore if controls open)
+  window.addEventListener("keydown", (e)=>{
+    if (e.code === "Space"){
+      e.preventDefault();
+      if (controlsOverlay.style.display === "flex") return;
+      jump();
+    }
+  });
+
+  canvas.addEventListener("pointerdown", (e)=>{
+    e.preventDefault();
+    if (controlsOverlay.style.display === "flex") return; // don't jump behind overlay
+    jump();
+  }, { passive:false });
+
+  // ========= Gate UI =========
+  function updateGateUI(){
+    const now = new Date();
+    bootstrapUser();
+
+    if (now < START){
+      msgEl.textContent = "🚂 Not open yet. Opens 12/20/2025 at 00:01.";
+      startBtn.disabled = true;
+      dayEl.textContent = "—";
+      return;
+    }
+    if (now > END){
+      msgEl.textContent = "❄️ Event ended. Closed after 12/30/2025 23:59.";
+      startBtn.disabled = true;
+      dayEl.textContent = "—";
+      return;
+    }
+
+    dayEl.textContent = `${dayIndex(now)} / 11`;
+    if (!running) msgEl.textContent = "🎁 One play per name per day. Good luck.";
+    startBtn.disabled = running ? true : false;
+  }
+
+  // Controls button should pause if opened mid-run
+  controlsBtn.addEventListener("click", ()=>setControlsOpen(true));
+
   // ========= Init =========
-  msgEl.textContent = "Ready.";
   bootstrapUser();
   updateGateUI();
   startGateTicker();
-  drawScene(0);
+
+  function safeDrawInit(){
+    if (!assetsReady) return;
+    drawScene();
+  }
+  safeDrawInit();
 })();
 </script>
 </body>
