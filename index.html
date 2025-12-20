@@ -2,87 +2,169 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Holiday Train Hop</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Holiday Train Hop — Daily Gauntlet</title>
   <style>
-    html,body{margin:0;height:100%;background:#0b1020;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    html,body{margin:0;height:100%;background:#0b1020;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;overflow:hidden}
     #wrap{display:flex;flex-direction:column;height:100%}
-    #hud{padding:10px 12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:rgba(0,0,0,.30);backdrop-filter:blur(6px)}
+    #hud{
+      padding:10px 12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+      background:rgba(0,0,0,.30);backdrop-filter:blur(6px)
+    }
     #msg{margin-left:auto;opacity:.95;min-width:260px;text-align:right}
-    button{border:0;border-radius:14px;padding:10px 14px;cursor:pointer;background:rgba(255,255,255,.12);color:#fff;font-weight:900}
+    button{
+      border:0;border-radius:14px;padding:10px 14px;cursor:pointer;
+      background:rgba(255,255,255,.12);color:#fff;font-weight:900
+    }
     button:hover{background:rgba(255,255,255,.18)}
     button:disabled{opacity:.45;cursor:not-allowed}
-    canvas{width:100%;height:100%;display:block}
+    canvas{width:100%;height:100%;display:block;touch-action:none}
 
-    #lbOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:9999}
-    #lbCard{width:min(520px,92vw);background:rgba(10,12,22,.92);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:16px;box-shadow:0 18px 40px rgba(0,0,0,.45)}
-    #lbCard h2{margin:0 0 10px 0;font-size:18px}
-    #lbCard .sub{opacity:.85;font-size:13px;margin-bottom:12px}
+    /* Overlays */
+    .overlay{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+      background:rgba(0,0,0,.58);backdrop-filter:blur(6px);z-index:9999;padding:18px
+    }
+    .card{
+      width:min(680px,94vw);
+      background:rgba(10,12,22,.92);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:18px;
+      padding:16px;
+      box-shadow:0 18px 40px rgba(0,0,0,.45)
+    }
+    .card h2{margin:0 0 10px 0;font-size:18px}
+    .sub{opacity:.85;font-size:13px;margin-bottom:12px;line-height:1.35}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .pill{
+      display:flex;gap:10px;align-items:center;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:14px;
+      padding:10px 12px;
+      font-size:14px
+    }
+    .key{
+      display:inline-flex;align-items:center;justify-content:center;
+      min-width:32px;height:32px;padding:0 10px;
+      border-radius:12px;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.18);
+      font-weight:900;
+      font-variant-numeric:tabular-nums
+    }
+    .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+
+    /* Leaderboard list */
     #lbList{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px 0}
     .lbRow{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:10px 12px;font-size:14px}
     .lbRow .left{display:flex;gap:10px;align-items:center}
     .rank{width:26px;height:26px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.10);font-weight:900}
     .lbRow .name{font-weight:800}
     .lbRow .meta{opacity:.85;font-variant-numeric:tabular-nums}
-    #lbActions{display:flex;gap:10px;justify-content:flex-end}
   </style>
 </head>
+
 <body>
 <div id="wrap">
   <div id="hud">
     <button id="startBtn">Start Daily Run</button>
-    <button id="showLBBtn">Leaderboard</button>
+    <button id="controlsBtn">Controls</button>
+    <button id="leaderBtn">Leaderboard</button>
 
     <div>User: <b id="userLabel">—</b></div>
     <div>Day: <b id="dayLabel">—</b></div>
     <div>Lives: <b id="livesLabel">3</b></div>
-    <div>Bells: <b id="bellsLabel">0</b></div>
+    <div>Time: <b id="timeLabel">10.0</b>s</div>
     <div>Score: <b id="scoreLabel">0</b></div>
 
     <div id="msg">Loading…</div>
   </div>
+
   <canvas id="c"></canvas>
 </div>
 
-<div id="lbOverlay">
-  <div id="lbCard">
+<!-- Controls Overlay -->
+<div id="controlsOverlay" class="overlay">
+  <div class="card">
+    <h2>🎮 Controls</h2>
+    <div class="sub">
+      This is a quick daily reflex gauntlet. You get <b>3 lives</b> and <b>10 seconds</b>.
+      Score = how many obstacles you clear. <br/>
+      <b>Mobile works</b>: tap the game area to jump. (If your phone browser is spicy, rotate landscape.)
+    </div>
+
+    <div class="row">
+      <div class="pill"><span class="key">Space</span><span>Jump</span></div>
+      <div class="pill"><span class="key">Click</span><span>Jump</span></div>
+      <div class="pill"><span class="key">Tap</span><span>Jump (mobile)</span></div>
+      <div class="pill"><span class="key">R</span><span>Restart (only if not checked-in already)</span></div>
+    </div>
+
+    <div class="sub" style="margin-top:10px">
+      Tip: it’s intentionally mean. Don’t spam jump — time it.
+    </div>
+
+    <div class="actions">
+      <button id="controlsClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Leaderboard Overlay -->
+<div id="lbOverlay" class="overlay">
+  <div class="card">
     <h2>🚂 Daily Leaderboard</h2>
     <div class="sub" id="lbSub">—</div>
     <div id="lbList"></div>
-    <div id="lbActions"><button id="lbCloseBtn">Close</button></div>
+    <div class="actions">
+      <button id="lbClose">Close</button>
+    </div>
   </div>
 </div>
 
 <script>
 (() => {
-  // ✅ WORKING API URL (leave exactly like this)
+  // ✅ Your working Apps Script endpoint
   const API_URL = "https://script.google.com/macros/s/AKfycbwQQCcwb4AQSDFsoGCN6jxHrU2An58X6df0ZIfH_fJ7F4Ae1isuxz_fQaS2dv7FEMOJ-A/exec";
 
   // Event window
   const START = new Date("2025-12-20T00:01:00");
   const END   = new Date("2025-12-30T23:59:59");
 
-  // UI
-  const msgEl   = document.getElementById("msg");
-  const userEl  = document.getElementById("userLabel");
-  const dayEl   = document.getElementById("dayLabel");
+  // Game settings
+  const RUN_SECONDS = 10.0;
+  const MAX_LIVES = 3;
+
+  // UI refs
+  const msgEl = document.getElementById("msg");
+  const userEl = document.getElementById("userLabel");
+  const dayEl = document.getElementById("dayLabel");
   const livesEl = document.getElementById("livesLabel");
-  const bellsEl = document.getElementById("bellsLabel");
+  const timeEl = document.getElementById("timeLabel");
   const scoreEl = document.getElementById("scoreLabel");
+
   const startBtn = document.getElementById("startBtn");
-  const showLBBtn = document.getElementById("showLBBtn");
+  const controlsBtn = document.getElementById("controlsBtn");
+  const leaderBtn = document.getElementById("leaderBtn");
+
+  const controlsOverlay = document.getElementById("controlsOverlay");
+  const controlsClose = document.getElementById("controlsClose");
+  controlsBtn.addEventListener("click", () => controlsOverlay.style.display = "flex");
+  controlsClose.addEventListener("click", () => controlsOverlay.style.display = "none");
+  controlsOverlay.addEventListener("click", (e)=>{ if(e.target===controlsOverlay) controlsOverlay.style.display="none"; });
 
   const lbOverlay = document.getElementById("lbOverlay");
+  const lbClose = document.getElementById("lbClose");
   const lbList = document.getElementById("lbList");
   const lbSub = document.getElementById("lbSub");
-  const lbCloseBtn = document.getElementById("lbCloseBtn");
-
-  lbCloseBtn.addEventListener("click", () => lbOverlay.style.display = "none");
+  lbClose.addEventListener("click", () => lbOverlay.style.display = "none");
   lbOverlay.addEventListener("click", (e)=>{ if(e.target===lbOverlay) lbOverlay.style.display="none"; });
 
-  // Canvas (just to keep your background visible)
+  // Canvas setup
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
+
   function resize(){
     const r = canvas.getBoundingClientRect();
     canvas.width = Math.floor(r.width * devicePixelRatio);
@@ -91,28 +173,17 @@
   window.addEventListener("resize", resize);
   resize();
 
+  // Background image
   const bgImg = new Image();
   bgImg.src = "background.png";
-  bgImg.onload = () => renderBg();
+  bgImg.onload = () => drawScene(0);
 
-  function renderBg(){
-    const W=canvas.width, H=canvas.height;
-    ctx.clearRect(0,0,W,H);
-    if(!bgImg.complete) return;
-    const s = Math.max(W/bgImg.width, H/bgImg.height);
-    const w=bgImg.width*s, h=bgImg.height*s;
-    ctx.drawImage(bgImg, (W-w)/2, (H-h)/2, w, h);
-  }
-
-  // ========= JSONP (NO CORS ISSUES) =========
+  // ========= JSONP (for GitHub Pages) =========
   function jsonp(url){
     return new Promise((resolve, reject) => {
       const cbName = "cb_" + Math.random().toString(36).slice(2);
       const s = document.createElement("script");
-      const timeout = setTimeout(() => {
-        cleanup();
-        reject(new Error("timeout"));
-      }, 12000);
+      const timeout = setTimeout(() => { cleanup(); reject(new Error("timeout")); }, 12000);
 
       function cleanup(){
         clearTimeout(timeout);
@@ -135,8 +206,8 @@
     return await jsonp(url);
   }
 
-  // API wrappers
   const checkinNameForToday = (name, day) => apiCall({ action:"checkin", name, day });
+  const submitScore = (name, day, score, time) => apiCall({ action:"submit", name, day, score:String(score), time:String(time) });
   const fetchLeaderboard = (day, limit=10) => apiCall({ action:"leaderboard", mode:"today", day, limit:String(limit) });
 
   // ========= User name =========
@@ -160,7 +231,7 @@
     } else userEl.textContent = name;
   }
 
-  // ========= Dates =========
+  // ========= Date helpers =========
   function pad2(n){ return String(n).padStart(2,"0"); }
   function ymd(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
   function inWindow(now){ return now>=START && now<=END; }
@@ -168,6 +239,17 @@
     const startMid = new Date(START.getFullYear(), START.getMonth(), START.getDate());
     const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     return Math.floor((nowMid - startMid)/(24*60*60*1000)) + 1;
+  }
+
+  // Gate UI (no auto-overwrite after run starts)
+  let gateTicker = null;
+  function startGateTicker(){
+    stopGateTicker();
+    gateTicker = setInterval(updateGateUI, 15000);
+  }
+  function stopGateTicker(){
+    if (gateTicker) clearInterval(gateTicker);
+    gateTicker = null;
   }
 
   function updateGateUI(){
@@ -187,10 +269,11 @@
       return;
     }
     dayEl.textContent = `${dayIndex(now)} / 11`;
-    msgEl.textContent = "🎁 One play per name per day. Good luck.";
-    startBtn.disabled = false;
+    if (!running) msgEl.textContent = "🎁 One play per name per day. Good luck.";
+    startBtn.disabled = running ? true : false;
   }
 
+  // ========= Leaderboard =========
   function renderLeaderboardList(rows){
     lbList.innerHTML = "";
     if (!rows || rows.length === 0){
@@ -205,27 +288,336 @@
     });
   }
 
-  async function showLeaderboard(openOverlay){
+  async function openLeaderboard(){
     const now = new Date();
     const day = ymd(now);
     lbSub.textContent = `Day ${dayIndex(now)} / 11 • ${day}`;
     try{
       const r = await fetchLeaderboard(day, 10);
-      if(r && r.ok) renderLeaderboardList(r.top || []);
+      if (r && r.ok) renderLeaderboardList(r.top || []);
       else renderLeaderboardList([]);
     }catch{
       renderLeaderboardList([]);
     }
-    if(openOverlay) lbOverlay.style.display="flex";
+    lbOverlay.style.display = "flex";
+  }
+  leaderBtn.addEventListener("click", openLeaderboard);
+
+  // ========= Game State =========
+  let running = false;
+  let checkedIn = false;
+  let submitted = false;
+
+  let lives = MAX_LIVES;
+  let score = 0;
+
+  let startTs = 0;
+  let lastTs = 0;
+  let remaining = RUN_SECONDS;
+
+  // Player
+  const player = {
+    x: 0.18,   // normalized
+    y: 0.78,
+    vy: 0,
+    onGround: true,
+  };
+
+  // Obstacles (normalized coords)
+  let obstacles = [];
+  let spawnT = 0;
+  let difficulty = 0;
+
+  // PRNG so daily “feel” is consistent
+  function mulberry32(seed){
+    let a = seed >>> 0;
+    return function(){
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function seedFromDay(d){
+    // d is Date
+    const s = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
+    return s ^ 0xA5B3571;
+  }
+  let rand = mulberry32(seedFromDay(new Date()));
+
+  function setScore(n){ score = n; scoreEl.textContent = String(score); }
+  function setLives(n){ lives = n; livesEl.textContent = String(lives); }
+  function setTime(sec){ timeEl.textContent = sec.toFixed(1); }
+
+  function resetRun(){
+    setLives(MAX_LIVES);
+    setScore(0);
+    remaining = RUN_SECONDS;
+    setTime(remaining);
+
+    player.y = 0.78;
+    player.vy = 0;
+    player.onGround = true;
+
+    obstacles = [];
+    spawnT = 0;
+    difficulty = 0;
+
+    submitted = false;
   }
 
-  showLBBtn.addEventListener("click", ()=>showLeaderboard(true));
+  // ========= Controls (desktop + mobile) =========
+  function jump(){
+    if (!running) return;
+    if (player.onGround){
+      player.vy = -1.05; // jump impulse (normalized units/sec)
+      player.onGround = false;
+    }
+  }
 
+  window.addEventListener("keydown", (e)=>{
+    if (e.code === "Space"){
+      e.preventDefault();
+      jump();
+    }
+    if (e.key === "r" || e.key === "R"){
+      // restart only if they haven't checked in (safety)
+      if (!running && !checkedIn) {
+        msgEl.textContent = "Ready.";
+        updateGateUI();
+      }
+    }
+  });
+
+  canvas.addEventListener("pointerdown", (e)=>{
+    // Tap/click anywhere in game area to jump
+    e.preventDefault();
+    jump();
+  }, { passive:false });
+
+  // ========= Collision helpers =========
+  function aabb(ax,ay,aw,ah,bx,by,bw,bh){
+    return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+  }
+
+  // ========= Drawing =========
+  function drawBackground(){
+    const W=canvas.width, H=canvas.height;
+    if(bgImg.complete){
+      const s = Math.max(W/bgImg.width, H/bgImg.height);
+      const w=bgImg.width*s, h=bgImg.height*s;
+      ctx.drawImage(bgImg, (W-w)/2, (H-h)/2, w, h);
+    } else {
+      ctx.fillStyle = "#0b1020";
+      ctx.fillRect(0,0,W,H);
+    }
+  }
+
+  function drawScene(dt){
+    const W=canvas.width, H=canvas.height;
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,W,H);
+    drawBackground();
+
+    // Arena overlay (subtle)
+    ctx.fillStyle = "rgba(0,0,0,.18)";
+    ctx.fillRect(0,0,W,H);
+
+    // Ground line
+    const groundY = Math.floor(H*0.82);
+    ctx.strokeStyle = "rgba(255,255,255,.20)";
+    ctx.lineWidth = Math.max(2, Math.floor(devicePixelRatio*1.5));
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    ctx.lineTo(W, groundY);
+    ctx.stroke();
+
+    // Player (a bright “ticket” rectangle)
+    const px = W * player.x;
+    const py = H * player.y;
+    const pw = Math.max(14*devicePixelRatio, W*0.03);
+    const ph = Math.max(18*devicePixelRatio, H*0.06);
+
+    ctx.fillStyle = "rgba(255,235,180,.95)";
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeStyle = "rgba(0,0,0,.35)";
+    ctx.lineWidth = Math.max(2, devicePixelRatio);
+    ctx.strokeRect(px, py, pw, ph);
+
+    // Obstacles (dark “ice spikes”)
+    obstacles.forEach(o=>{
+      const ox = W * o.x;
+      const oy = H * o.y;
+      const ow = W * o.w;
+      const oh = H * o.h;
+
+      ctx.fillStyle = "rgba(40,180,255,.85)";
+      ctx.fillRect(ox, oy, ow, oh);
+      ctx.strokeStyle = "rgba(0,0,0,.35)";
+      ctx.strokeRect(ox, oy, ow, oh);
+    });
+
+    // Minimal prompt
+    if (!running){
+      ctx.fillStyle = "rgba(255,255,255,.85)";
+      ctx.font = `${Math.max(14*devicePixelRatio, 18)}px system-ui`;
+      ctx.fillText("Tap / Click / Space to Jump", Math.floor(W*0.03), Math.floor(H*0.08));
+    }
+
+    ctx.restore();
+  }
+
+  // ========= Game Loop =========
+  function spawnObstacle(){
+    // difficulty increases over time -> faster + narrower gaps
+    // obstacle is a vertical pillar from ground up, forcing jump timing
+    const baseW = 0.018 + 0.008 * (1 - Math.min(1, difficulty));
+    const w = Math.max(0.012, baseW + (rand()-0.5)*0.006);
+
+    // height varies; too tall makes you jump earlier, too short is bait
+    const h = 0.10 + rand()*0.18 + difficulty*0.06;
+    const height = Math.min(0.34, Math.max(0.10, h));
+
+    obstacles.push({
+      x: 1.05,
+      y: 0.82 - height,
+      w,
+      h: height,
+      passed: false,
+    });
+  }
+
+  function step(ts){
+    if (!running) return;
+
+    if (!startTs){ startTs = ts; lastTs = ts; }
+    const dt = Math.min(0.035, (ts - lastTs) / 1000);
+    lastTs = ts;
+
+    // time
+    remaining = Math.max(0, RUN_SECONDS - (ts - startTs)/1000);
+    setTime(remaining);
+
+    // difficulty ramp
+    const t = 1 - (remaining / RUN_SECONDS); // 0 -> 1
+    difficulty = Math.min(1, 0.15 + t*0.95);
+
+    // gravity & jump
+    player.vy += 2.45 * dt; // gravity
+    player.y += player.vy * dt;
+
+    const groundTop = 0.82 - 0.06; // player height-ish
+    if (player.y >= groundTop){
+      player.y = groundTop;
+      player.vy = 0;
+      player.onGround = true;
+    }
+
+    // scrolling speed (mean)
+    const speed = 0.62 + difficulty*0.95; // normalized units/sec
+
+    // spawn logic: variable cadence, tighter with difficulty
+    spawnT -= dt;
+    if (spawnT <= 0){
+      spawnObstacle();
+      const minGap = 0.45 - difficulty*0.22;       // seconds between spawns
+      const jitter = (rand()*0.22);
+      spawnT = Math.max(0.18, minGap + jitter);
+    }
+
+    // update obstacles
+    obstacles.forEach(o => o.x -= speed * dt);
+
+    // collision + scoring
+    const W = canvas.width, H = canvas.height;
+    const px = player.x;
+    const py = player.y;
+    const pw = 0.03;
+    const ph = 0.06;
+
+    for (const o of obstacles){
+      // passed for score
+      if (!o.passed && o.x + o.w < px){
+        o.passed = true;
+        setScore(score + 1);
+      }
+
+      // collision (AABB)
+      if (aabb(px,py,pw,ph, o.x,o.y,o.w,o.h)){
+        // hit: lose a life and "phase" past it slightly
+        setLives(lives - 1);
+        // bounce up slightly to give chance not to chain-hit
+        player.vy = -0.75;
+        player.onGround = false;
+        // shove obstacle behind player so it doesn't instantly re-hit
+        o.x = px - o.w - 0.02;
+
+        if (lives <= 0){
+          endRun(false);
+          return;
+        }
+      }
+    }
+
+    // cleanup
+    obstacles = obstacles.filter(o => o.x > -0.25);
+
+    // draw
+    drawScene(dt);
+
+    if (remaining <= 0){
+      endRun(true);
+      return;
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  async function endRun(survived){
+    running = false;
+    stopGateTicker();
+    startBtn.disabled = true;
+
+    const now = new Date();
+    const day = ymd(now);
+    const name = sanitizeName(getUsername()) || "Guest";
+    const timeTaken = RUN_SECONDS - remaining;
+
+    const flavor = survived ? "✅ Run complete!" : "💥 Wiped out!";
+    msgEl.textContent = `${flavor} Submitting score…`;
+
+    if (submitted){
+      msgEl.textContent = `${flavor} (Already submitted.)`;
+      startGateTicker();
+      return;
+    }
+
+    try{
+      const r = await submitScore(name, day, score, timeTaken);
+      submitted = true;
+
+      if (r && r.ok){
+        msgEl.textContent = `🏁 ${flavor} Score: ${score}. Posted to leaderboard.`;
+      } else {
+        msgEl.textContent = `⚠️ ${flavor} Score: ${score}. Submit failed (server).`;
+      }
+    }catch{
+      msgEl.textContent = `⚠️ ${flavor} Score: ${score}. Submit failed (network).`;
+    }
+
+    await openLeaderboard();
+    startGateTicker();
+  }
+
+  // ========= Start Flow =========
   async function startDailyRun(){
     const now = new Date();
-    if (!inWindow(now)) return updateGateUI();
+    if (!inWindow(now)) { updateGateUI(); return; }
 
     bootstrapUser();
+    controlsOverlay.style.display = "flex"; // show controls once before run
+    // Don’t force them to close; they can close anytime
     const name = sanitizeName(getUsername()) || "Guest";
     const day = ymd(now);
 
@@ -234,37 +626,45 @@
 
     try{
       const r = await checkinNameForToday(name, day);
-      if(!r || !r.ok){
+      if (!r || !r.ok){
         msgEl.textContent = "⚠️ Server error. Try again.";
         startBtn.disabled = false;
         return;
       }
-      if(!r.allowed){
+      if (!r.allowed){
+        checkedIn = true;
         msgEl.textContent = "✅ Already played today (for this name). Come back tomorrow!";
         startBtn.disabled = true;
-        await showLeaderboard(false);
+        await openLeaderboard();
         return;
       }
 
-      msgEl.textContent = `✅ Checked in for today, ${name}.`;
-      // This safe build only confirms check-in + leaderboard.
-      // Your full platformer game loop plugs in after this line.
+      checkedIn = true;
+      submitted = false;
+      resetRun();
+      running = true;
 
-    }catch(e){
+      // stop the gate message overwriting during play
+      stopGateTicker();
+
+      msgEl.textContent = `🚂 GO, ${name} — Tap/Click/Space to jump!`;
+      requestAnimationFrame(step);
+
+    }catch{
       msgEl.textContent = "⚠️ Network error. Try again.";
       startBtn.disabled = false;
     }
   }
-
   startBtn.addEventListener("click", startDailyRun);
 
-  // Init
+  // ========= Init =========
   msgEl.textContent = "Ready.";
   bootstrapUser();
   updateGateUI();
-  setInterval(updateGateUI, 15000);
-  renderBg();
+  startGateTicker();
+  drawScene(0);
 })();
 </script>
 </body>
 </html>
+
