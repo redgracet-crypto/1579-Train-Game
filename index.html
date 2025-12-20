@@ -22,7 +22,6 @@
     button:hover { background:rgba(255,255,255,.18); }
     button:disabled { opacity:.45; cursor:not-allowed; }
 
-    /* Leaderboard overlay */
     #lbOverlay {
       position:fixed; inset:0; display:none; align-items:center; justify-content:center;
       background:rgba(0,0,0,.55); backdrop-filter: blur(6px);
@@ -77,7 +76,6 @@
   <canvas id="c"></canvas>
 </div>
 
-<!-- Leaderboard overlay -->
 <div id="lbOverlay">
   <div id="lbCard">
     <h2>🚂 Daily Leaderboard</h2>
@@ -92,32 +90,63 @@
 <script>
 (() => {
   // =========================
-  //  BACKEND (Google Apps Script)
+  //  BACKEND URL (your Apps Script)
   // =========================
   const API_URL = "https://script.google.com/macros/s/AKfycbzebjBqpqvxjAqAX3SbWqICXizAS5BWJRagY41nkXo2oV3ZauminLd05a905kXYxr727g/exec";
 
+  // =========================
+  //  JSONP (bypasses CORS)
+  // =========================
+  function jsonp(url){
+    return new Promise((resolve, reject) => {
+      const cbName = "cb_" + Math.random().toString(36).slice(2);
+      const s = document.createElement("script");
+
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error("JSONP timeout"));
+      }, 12000);
+
+      function cleanup(){
+        clearTimeout(timeout);
+        try { delete window[cbName]; } catch {}
+        s.remove();
+      }
+
+      window[cbName] = (data) => {
+        cleanup();
+        resolve(data);
+      };
+
+      const sep = url.includes("?") ? "&" : "?";
+      s.src = url + sep + "callback=" + cbName;
+      s.onerror = () => {
+        cleanup();
+        reject(new Error("JSONP load error"));
+      };
+
+      document.head.appendChild(s);
+    });
+  }
+
   async function apiCall(params){
-    // cache-bust to avoid weird caching on some networks
     params._ = String(Date.now());
     const url = API_URL + "?" + new URLSearchParams(params).toString();
-    const res = await fetch(url, { method: "GET" });
-    return await res.json();
+    return await jsonp(url);
   }
 
   async function checkinNameForToday(name, day){
     return apiCall({ action:"checkin", name, day });
   }
-
   async function submitScore(name, day, score, time){
     return apiCall({ action:"submit", name, day, score:String(score), time:String(time) });
   }
-
   async function fetchLeaderboard(day, limit=10){
     return apiCall({ action:"leaderboard", mode:"today", day, limit:String(limit) });
   }
 
   // =========================
-  //  TIME WINDOW (local time)
+  //  TIME WINDOW
   // =========================
   const START = new Date("2025-12-20T00:01:00");
   const END   = new Date("2025-12-30T23:59:59");
@@ -177,7 +206,7 @@
     loaded++;
     if (loaded === 2){
       assetsReady = true;
-      msgEl.textContent = "Checking schedule…";
+      msgEl.textContent = "Ready.";
       bootstrapUser();
       updateGateUI();
       render();
@@ -188,17 +217,13 @@
 
   // =========================
   //  SPRITE MAP (approx)
-  //  If sprites look mis-cut,
-  //  screenshot it and I’ll tune.
   // =========================
   const SPRITES = {
     platform:       { x:   0, y:   0, w: 500, h: 140 },
     platformNarrow: { x:   0, y: 145, w: 320, h: 110 },
     movingPlatform: { x: 330, y: 145, w: 520, h: 140 },
-
     spikes: { x:   0, y: 270, w: 420, h: 130 },
     bell:   { x: 840, y: 150, w: 160, h: 160 },
-
     goal: { x: 1000, y:  0, w: 520, h: 520 },
   };
 
@@ -217,7 +242,7 @@
   }
 
   // =========================
-  //  USERNAME (local)
+  //  USERNAME
   // =========================
   const USER_KEY = "trainhop_username";
   function sanitizeName(s){
@@ -234,7 +259,7 @@
   function bootstrapUser(){
     let name = sanitizeName(getUsername());
     if (!name){
-      name = sanitizeName(prompt("KC name for the leaderboard? (must be consistent)") || "");
+      name = sanitizeName(prompt("1579 name for leaderboard? (use same every day)") || "");
       if (!name) name = "Guest";
       setUsername(name);
     } else {
@@ -248,16 +273,13 @@
   const MAX_LIVES = 3;
   const ALL_BELLS = 3;
 
-  // scoring
   const SCORE_BELL = 150;
   const SCORE_WIN  = 3000;
 
-  // time bonus: max 2500, starts decaying after 25s
   const TIME_BONUS_MAX = 2500;
   const TIME_SAFE_SECONDS = 25;
   const TIME_DECAY_PER_SEC = 85;
 
-  // physics (hard)
   const G = 0.74;
   const JUMP = -13.1;
   const SPEED = 5.0;
@@ -267,519 +289,5 @@
   // =========================
   //  GAME STATE
   // =========================
-  let player, platforms, bells, hazards, goal, camX;
-  let bellsCollected = 0;
-  let running = false;
-  let lives = MAX_LIVES;
+  let p
 
-  let score = 0;
-  let startTimeMs = 0;
-
-  // One-play-per-day enforced by server checkin:
-  let runLockedByServer = false; // true after successful checkin
-  let hasSubmitted = false;
-
-  function setScore(v){
-    score = Math.max(0, Math.floor(v));
-    scoreEl.textContent = String(score);
-  }
-
-  function elapsedSeconds(){
-    if (!startTimeMs) return 0;
-    return (performance.now() - startTimeMs) / 1000;
-  }
-
-  function timeBonus(){
-    const t = elapsedSeconds();
-    if (t <= TIME_SAFE_SECONDS) return TIME_BONUS_MAX;
-    const extra = t - TIME_SAFE_SECONDS;
-    return Math.max(0, Math.floor(TIME_BONUS_MAX - extra * TIME_DECAY_PER_SEC));
-  }
-
-  // =========================
-  //  RNG + COLLISION
-  // =========================
-  function rngFactory(seed){
-    let s = seed >>> 0;
-    return function rand(){
-      s = (s * 1664525 + 1013904223) >>> 0;
-      return s / 4294967296;
-    };
-  }
-
-  function aabb(a,b){
-    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
-  }
-
-  // =========================
-  //  LEVEL (daily deterministic from day index)
-  // =========================
-  function dailySeedFromDay(di){
-    return (di * 2654435761) >>> 0;
-  }
-
-  function makeBrutalLevel(seed){
-    const rand = rngFactory(seed);
-    const worldLen = 2700;
-
-    platforms = [];
-    hazards = [];
-    bells = [];
-
-    platforms.push({x:0, y:520, w:worldLen, h:90, kind:"ground"});
-
-    let x = 160;
-    let y = 450;
-
-    // precision warm-up
-    for (let i=0;i<4;i++){
-      x += 165 + Math.floor(rand()*55);
-      y += (rand() < 0.5 ? -1 : 1) * (35 + Math.floor(rand()*35));
-      y = Math.max(240, Math.min(470, y));
-      platforms.push({x, y, w:100, h:22, kind:"narrow"});
-
-      if (i >= 1){
-        hazards.push({x: x - 85, y: 505, w: 70, h: 20});
-      }
-    }
-
-    // moving platform section
-    for (let i=0;i<7;i++){
-      x += 185 + Math.floor(rand()*70);
-      y += (rand() < 0.5 ? -1 : 1) * (40 + Math.floor(rand()*35));
-      y = Math.max(230, Math.min(460, y));
-
-      const horiz = rand() < 0.7;
-      platforms.push({
-        x, y, w:92, h:20, kind:"moving",
-        move: {
-          ax: x, ay: y,
-          dx: horiz ? (90 + Math.floor(rand()*70)) : 0,
-          dy: horiz ? 0 : (55 + Math.floor(rand()*45)),
-          t: rand()*Math.PI*2,
-          spd: 0.017 + rand()*0.013
-        }
-      });
-
-      if (rand() < 0.75){
-        hazards.push({x: x + 20, y: 505, w: 60, h: 20});
-      }
-    }
-
-    // 3 bells placed to force risk
-    function addBellNearPlatform(pi, xoff, yoff){
-      const p = platforms[pi];
-      bells.push({x: p.x + xoff, y: p.y + yoff, r: 14, taken:false});
-    }
-    addBellNearPlatform(3, 50, -26);
-    addBellNearPlatform(7, 46, -30);
-    addBellNearPlatform(platforms.length - 1, 46, -30);
-
-    // goal
-    const last = platforms[platforms.length - 1];
-    goal = {x: last.x + 240, y: 350, w: 76, h: 140};
-    platforms.push({x: goal.x - 85, y: 440, w: 120, h: 20, kind:"narrow"});
-    hazards.push({x: goal.x - 10, y: 505, w: 70, h: 20});
-
-    // player start
-    player = {x:60, y:440, w:32, h:44, vx:0, vy:0, onGround:false};
-
-    camX = 0;
-    bellsCollected = 0;
-    bellsEl.textContent = "0";
-    running = true;
-  }
-
-  // =========================
-  //  ATTEMPT RESET (no checkpoint)
-  // =========================
-  function resetAttempt(){
-    for (const b of bells) b.taken = false;
-    bellsCollected = 0;
-    bellsEl.textContent = "0";
-
-    player.x = 60; player.y = 440;
-    player.vx = 0; player.vy = 0;
-    player.onGround = false;
-
-    msgEl.textContent = `💀 Life lost. ${lives} left.`;
-  }
-
-  // =========================
-  //  FINISH + SUBMIT (server)
-  // =========================
-  async function finishAndSubmit(didWin){
-    if (hasSubmitted) return;
-    hasSubmitted = true;
-    running = false;
-
-    const name = sanitizeName(getUsername()) || "Guest";
-    const now = new Date();
-    const day = ymd(now);
-    const t = elapsedSeconds();
-
-    if (didWin){
-      setScore(score + SCORE_WIN + timeBonus());
-      msgEl.textContent = `🎉 Finished! Submitting score…`;
-    } else {
-      msgEl.textContent = `🪦 Run over. Submitting score…`;
-    }
-
-    try {
-      const r = await submitScore(name, day, score, t);
-      // Show leaderboard after submit (even if submit had minor issues)
-      await showLeaderboard(true);
-      if (r && r.ok){
-        msgEl.textContent = didWin
-          ? `🎉 Score saved: ${score}. One play per day — see you tomorrow!`
-          : `🪦 Score saved: ${score}. One play per day — see you tomorrow!`;
-      } else {
-        msgEl.textContent = `⚠️ Submit failed (try opening Leaderboard).`;
-      }
-    } catch (e){
-      msgEl.textContent = `⚠️ Submit error (network).`;
-      await showLeaderboard(true);
-    }
-
-    // hard lock UI for the day after finish (since server will block anyway)
-    startBtn.disabled = true;
-  }
-
-  // =========================
-  //  MAIN LOOP
-  // =========================
-  function step(){
-    if (!running) return;
-
-    // move platforms
-    for (const p of platforms){
-      if (!p.move) continue;
-      p.move.t += p.move.spd;
-      p.x = p.move.ax + Math.sin(p.move.t) * p.move.dx;
-      p.y = p.move.ay + Math.cos(p.move.t*0.92) * p.move.dy;
-    }
-
-    // input
-    const left = keys.has("arrowleft") || keys.has("a");
-    const right = keys.has("arrowright") || keys.has("d");
-    const jump = keys.has("arrowup") || keys.has("w") || keys.has(" ");
-
-    const accel = player.onGround ? 1.0 : AIR_CTRL;
-    if (left) player.vx -= 0.95 * accel;
-    if (right) player.vx += 0.95 * accel;
-
-    player.vx *= FRICTION;
-    player.vx = Math.max(-SPEED, Math.min(SPEED, player.vx));
-
-    // hard jump (no buffer/coyote)
-    if (jump && player.onGround){
-      player.vy = JUMP;
-      player.onGround = false;
-    }
-
-    // physics
-    player.vy += G;
-    player.x += player.vx;
-    player.y += player.vy;
-
-    // collisions
-    player.onGround = false;
-    for (const p of platforms){
-      if (!aabb(player, p)) continue;
-
-      const prevY = player.y - player.vy;
-      const prevBottom = prevY + player.h;
-
-      if (prevBottom <= p.y + 8 && player.vy >= 0){
-        player.y = p.y - player.h;
-        player.vy = 0;
-        player.onGround = true;
-      } else {
-        const prevX = player.x - player.vx;
-        if (prevX + player.w <= p.x + 8){
-          player.x = p.x - player.w;
-          player.vx = 0;
-        } else if (prevX >= p.x + p.w - 8){
-          player.x = p.x + p.w;
-          player.vx = 0;
-        } else if (player.vy < 0){
-          player.y = p.y + p.h;
-          player.vy = 0;
-        }
-      }
-    }
-
-    // hazards
-    for (const h of hazards){
-      if (aabb(player, h)){
-        lives--;
-        livesEl.textContent = String(lives);
-        if (lives <= 0){
-          finishAndSubmit(false);
-          return;
-        }
-        resetAttempt();
-        render();
-        requestAnimationFrame(step);
-        return;
-      }
-    }
-
-    // bells (+score)
-    for (const b of bells){
-      if (b.taken) continue;
-      const dx = (player.x + player.w/2) - b.x;
-      const dy = (player.y + player.h/2) - b.y;
-      if (dx*dx + dy*dy < (b.r + 16)*(b.r + 16)){
-        b.taken = true;
-        bellsCollected++;
-        bellsEl.textContent = String(bellsCollected);
-        setScore(score + SCORE_BELL);
-      }
-    }
-
-    // goal unlock
-    if (bellsCollected >= ALL_BELLS && aabb(player, goal)){
-      finishAndSubmit(true);
-      return;
-    }
-
-    // fall = life loss
-    if (player.y > 720){
-      lives--;
-      livesEl.textContent = String(lives);
-      if (lives <= 0){
-        finishAndSubmit(false);
-        return;
-      }
-      resetAttempt();
-    }
-
-    // camera
-    camX = Math.max(0, player.x - 240);
-
-    render();
-    requestAnimationFrame(step);
-  }
-
-  // =========================
-  //  RENDERING
-  // =========================
-  function drawCoverImage(img){
-    const W = canvas.width, H = canvas.height;
-    const scale = Math.max(W / img.width, H / img.height);
-    const w = img.width * scale;
-    const h = img.height * scale;
-    const x = (W - w) / 2;
-    const y = (H - h) / 2;
-    ctx.drawImage(img, x, y, w, h);
-  }
-
-  function render(){
-    const dpr = devicePixelRatio;
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    if (assetsReady) {
-      drawCoverImage(bgImg);
-    } else {
-      ctx.fillStyle = "#0b1020";
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      return;
-    }
-
-    ctx.save();
-    ctx.translate(-camX*dpr, 0);
-
-    // platforms
-    for (const p of platforms){
-      if (!spriteImg.complete) break;
-      let s = SPRITES.platform;
-      if (p.kind === "narrow") s = SPRITES.platformNarrow;
-      if (p.kind === "moving") s = SPRITES.movingPlatform;
-
-      ctx.drawImage(spriteImg, s.x, s.y, s.w, s.h, p.x*dpr, p.y*dpr, p.w*dpr, p.h*dpr);
-    }
-
-    // spikes
-    for (const h of hazards){
-      const s = SPRITES.spikes;
-      ctx.drawImage(spriteImg, s.x, s.y, s.w, s.h, h.x*dpr, h.y*dpr, h.w*dpr, h.h*dpr);
-    }
-
-    // bells
-    for (const b of bells){
-      if (b.taken) continue;
-      const s = SPRITES.bell;
-      ctx.drawImage(spriteImg, s.x, s.y, s.w, s.h,
-        (b.x - b.r)*dpr, (b.y - b.r)*dpr, (b.r*2)*dpr, (b.r*2)*dpr
-      );
-    }
-
-    // goal glow if unlocked
-    if (bellsCollected >= ALL_BELLS){
-      ctx.globalAlpha = 0.32;
-      ctx.fillStyle = "rgba(255,220,140,0.9)";
-      ctx.fillRect((goal.x-12)*dpr, (goal.y-12)*dpr, (goal.w+24)*dpr, (goal.h+24)*dpr);
-      ctx.globalAlpha = 1;
-    }
-    const sg = SPRITES.goal;
-    ctx.drawImage(spriteImg, sg.x, sg.y, sg.w, sg.h, goal.x*dpr, goal.y*dpr, goal.w*dpr, goal.h*dpr);
-
-    // player (placeholder)
-    ctx.fillStyle = "rgba(190,230,255,0.95)";
-    ctx.fillRect(player.x*dpr, player.y*dpr, player.w*dpr, player.h*dpr);
-
-    ctx.restore();
-
-    // hint
-    ctx.fillStyle = "rgba(255,255,255,.85)";
-    ctx.font = `${14*dpr}px system-ui`;
-    const goalTxt = (bellsCollected >= ALL_BELLS) ? "Goal UNLOCKED" : `Collect ${ALL_BELLS} bells`;
-    const timeTxt = running ? `Time: ${elapsedSeconds().toFixed(1)}s` : "";
-    ctx.fillText(`Move: A/D or ←/→  Jump: W/↑/Space  •  ${goalTxt}  •  ${timeTxt}`, 12*dpr, (canvas.height - 16*dpr));
-  }
-
-  // =========================
-  //  GATE UI (window only)
-  //  One-play-per-day is enforced by backend checkin.
-  // =========================
-  function updateGateUI(){
-    const now = new Date();
-    if (!assetsReady) return false;
-
-    userEl.textContent = sanitizeName(getUsername()) || "—";
-
-    if (now < START){
-      msgEl.textContent = "🚂 Not open yet. Opens 12/20/2025 at 00:01.";
-      startBtn.disabled = true;
-      dayEl.textContent = "—";
-      return false;
-    }
-    if (now > END){
-      msgEl.textContent = "❄️ Event ended. Closed after 12/30/2025 23:59.";
-      startBtn.disabled = true;
-      dayEl.textContent = "—";
-      return false;
-    }
-
-    const di = dayIndex(now);
-    dayEl.textContent = `${di} / 11`;
-
-    // If they already checked-in earlier this day (server-side), they'll be blocked when they try.
-    msgEl.textContent = "🎁 One play per name per day. Good luck.";
-    startBtn.disabled = false;
-    return true;
-  }
-
-  // =========================
-  //  LEADERBOARD UI
-  // =========================
-  function renderLeaderboardList(rows){
-    lbList.innerHTML = "";
-    if (!rows || rows.length === 0){
-      lbList.innerHTML = `<div class="lbRow"><div class="left"><div class="rank">—</div><div class="name">No scores yet today</div></div><div class="meta">❄️</div></div>`;
-      return;
-    }
-    rows.forEach((r, i) => {
-      const row = document.createElement("div");
-      row.className = "lbRow";
-      row.innerHTML = `
-        <div class="left">
-          <div class="rank">${i+1}</div>
-          <div class="name">${String(r.name || "").replace(/</g,"&lt;")}</div>
-        </div>
-        <div class="meta">${r.score} pts • ${Number(r.time||0).toFixed(1)}s</div>
-      `;
-      lbList.appendChild(row);
-    });
-  }
-
-  async function showLeaderboard(openOverlay){
-    const now = new Date();
-    const day = ymd(now);
-    lbSub.textContent = `Day ${dayIndex(now)} / 11 • ${day}`;
-    try {
-      const r = await fetchLeaderboard(day, 10);
-      if (r && r.ok){
-        renderLeaderboardList(r.top || r.topToday || []);
-      } else {
-        renderLeaderboardList([]);
-      }
-    } catch {
-      renderLeaderboardList([]);
-    }
-    if (openOverlay) lbOverlay.style.display = "flex";
-  }
-
-  showLBBtn.addEventListener("click", () => showLeaderboard(true));
-
-  // =========================
-  //  START RUN (server checkin)
-  // =========================
-  async function startDailyRun(){
-    const now = new Date();
-    if (!assetsReady) return;
-    if (!inWindow(now)) return updateGateUI();
-
-    bootstrapUser();
-    const name = sanitizeName(getUsername()) || "Guest";
-    const day = ymd(now);
-
-    startBtn.disabled = true;
-    msgEl.textContent = "Checking in (one play per name per day)…";
-
-    // Server-enforced lock
-    try {
-      const r = await checkinNameForToday(name, day);
-      if (!r || !r.ok){
-        msgEl.textContent = "⚠️ Server error. Try again.";
-        startBtn.disabled = false;
-        return;
-      }
-      if (!r.allowed){
-        msgEl.textContent = "✅ Already played today (for this name). Come back tomorrow!";
-        startBtn.disabled = true;
-        await showLeaderboard(false);
-        return;
-      }
-      runLockedByServer = true;
-    } catch (e){
-      msgEl.textContent = "⚠️ Network error. Try again.";
-      startBtn.disabled = false;
-      return;
-    }
-
-    // Start run state
-    hasSubmitted = false;
-    lives = MAX_LIVES;
-    livesEl.textContent = String(lives);
-
-    bellsCollected = 0;
-    bellsEl.textContent = "0";
-
-    setScore(0);
-    startTimeMs = performance.now();
-
-    const di = dayIndex(now);
-    const seed = dailySeedFromDay(di);
-    makeBrutalLevel(seed);
-
-    msgEl.textContent = `🚂 Go, ${name}. 3 lives. No checkpoint.`;
-    running = true;
-    requestAnimationFrame(step);
-  }
-
-  startBtn.addEventListener("click", startDailyRun);
-
-  // =========================
-  //  INIT
-  // =========================
-  bootstrapUser();
-  updateGateUI();
-  setInterval(updateGateUI, 15000);
-
-})();
-</script>
-</body>
-</html>
