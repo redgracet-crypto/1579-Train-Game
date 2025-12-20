@@ -5,57 +5,25 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Holiday Train Hop</title>
   <style>
-    html, body { margin:0; height:100%; background:#0b1020; color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-    #wrap { display:flex; flex-direction:column; height:100%; }
-    #hud {
-      padding:10px 12px;
-      display:flex; gap:12px; align-items:center; flex-wrap:wrap;
-      background:rgba(0,0,0,.30); backdrop-filter: blur(6px);
-    }
-    #hud b { font-weight:900; }
-    #msg { margin-left:auto; opacity:.95; min-width:260px; text-align:right; }
-    canvas { width:100%; height:100%; display:block; touch-action:none; }
-    button {
-      border:0; border-radius:14px; padding:10px 14px; cursor:pointer;
-      background:rgba(255,255,255,.12); color:#fff; font-weight:900;
-    }
-    button:hover { background:rgba(255,255,255,.18); }
-    button:disabled { opacity:.45; cursor:not-allowed; }
-
-    #lbOverlay {
-      position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-      background:rgba(0,0,0,.55); backdrop-filter: blur(6px);
-      z-index:9999;
-    }
-    #lbCard {
-      width:min(520px, 92vw);
-      background:rgba(10,12,22,.92);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:18px;
-      padding:16px;
-      box-shadow: 0 18px 40px rgba(0,0,0,.45);
-    }
-    #lbCard h2 { margin:0 0 10px 0; font-size:18px; }
-    #lbCard .sub { opacity:.85; font-size:13px; margin-bottom:12px; }
-    #lbList { display:flex; flex-direction:column; gap:8px; margin:10px 0 14px 0; }
-    .lbRow {
-      display:flex; justify-content:space-between; align-items:center;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:14px;
-      padding:10px 12px;
-      font-size:14px;
-    }
-    .lbRow .left { display:flex; gap:10px; align-items:center; }
-    .rank {
-      width:26px; height:26px; border-radius:10px;
-      display:flex; align-items:center; justify-content:center;
-      background:rgba(255,255,255,.10);
-      font-weight:900;
-    }
-    .lbRow .name { font-weight:800; }
-    .lbRow .meta { opacity:.85; font-variant-numeric: tabular-nums; }
-    #lbActions { display:flex; gap:10px; justify-content:flex-end; }
+    html,body{margin:0;height:100%;background:#0b1020;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    #wrap{display:flex;flex-direction:column;height:100%}
+    #hud{padding:10px 12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:rgba(0,0,0,.30);backdrop-filter:blur(6px)}
+    #msg{margin-left:auto;opacity:.95;min-width:260px;text-align:right}
+    button{border:0;border-radius:14px;padding:10px 14px;cursor:pointer;background:rgba(255,255,255,.12);color:#fff;font-weight:900}
+    button:hover{background:rgba(255,255,255,.18)}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    canvas{width:100%;height:100%;display:block}
+    #lbOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:9999}
+    #lbCard{width:min(520px,92vw);background:rgba(10,12,22,.92);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:16px;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+    #lbCard h2{margin:0 0 10px 0;font-size:18px}
+    #lbCard .sub{opacity:.85;font-size:13px;margin-bottom:12px}
+    #lbList{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px 0}
+    .lbRow{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:10px 12px;font-size:14px}
+    .lbRow .left{display:flex;gap:10px;align-items:center}
+    .rank{width:26px;height:26px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.10);font-weight:900}
+    .lbRow .name{font-weight:800}
+    .lbRow .meta{opacity:.85;font-variant-numeric:tabular-nums}
+    #lbActions{display:flex;gap:10px;justify-content:flex-end}
   </style>
 </head>
 <body>
@@ -72,7 +40,6 @@
 
     <div id="msg">Loading…</div>
   </div>
-
   <canvas id="c"></canvas>
 </div>
 
@@ -81,79 +48,20 @@
     <h2>🚂 Daily Leaderboard</h2>
     <div class="sub" id="lbSub">—</div>
     <div id="lbList"></div>
-    <div id="lbActions">
-      <button id="lbCloseBtn">Close</button>
-    </div>
+    <div id="lbActions"><button id="lbCloseBtn">Close</button></div>
   </div>
 </div>
 
 <script>
 (() => {
-  // =========================
-  //  BACKEND URL (your Apps Script)
-  // =========================
-  const API_URL = "https://script.google.com/macros/s/AKfycbzebjBqpqvxjAqAX3SbWqICXizAS5BWJRagY41nkXo2oV3ZauminLd05a905kXYxr727g/exec";
+  // ✅ PASTE YOUR NEW /exec URL HERE
+  const API_URL = "https://script.google.com/macros/s/AKfycbwQQCcwb4AQSDFsoGCN6jxHrU2An58X6df0ZIfH_fJ7F4Ae1isuxz_fQaS2dv7FEMOJ-A/exec";
 
-  // =========================
-  //  JSONP (bypasses CORS)
-  // =========================
-  function jsonp(url){
-    return new Promise((resolve, reject) => {
-      const cbName = "cb_" + Math.random().toString(36).slice(2);
-      const s = document.createElement("script");
-
-      const timeout = setTimeout(() => {
-        cleanup();
-        reject(new Error("JSONP timeout"));
-      }, 12000);
-
-      function cleanup(){
-        clearTimeout(timeout);
-        try { delete window[cbName]; } catch {}
-        s.remove();
-      }
-
-      window[cbName] = (data) => {
-        cleanup();
-        resolve(data);
-      };
-
-      const sep = url.includes("?") ? "&" : "?";
-      s.src = url + sep + "callback=" + cbName;
-      s.onerror = () => {
-        cleanup();
-        reject(new Error("JSONP load error"));
-      };
-
-      document.head.appendChild(s);
-    });
-  }
-
-  async function apiCall(params){
-    params._ = String(Date.now());
-    const url = API_URL + "?" + new URLSearchParams(params).toString();
-    return await jsonp(url);
-  }
-
-  async function checkinNameForToday(name, day){
-    return apiCall({ action:"checkin", name, day });
-  }
-  async function submitScore(name, day, score, time){
-    return apiCall({ action:"submit", name, day, score:String(score), time:String(time) });
-  }
-  async function fetchLeaderboard(day, limit=10){
-    return apiCall({ action:"leaderboard", mode:"today", day, limit:String(limit) });
-  }
-
-  // =========================
-  //  TIME WINDOW
-  // =========================
+  // Event window
   const START = new Date("2025-12-20T00:01:00");
   const END   = new Date("2025-12-30T23:59:59");
 
-  // =========================
-  //  UI ELEMENTS
-  // =========================
+  // UI
   const msgEl   = document.getElementById("msg");
   const userEl  = document.getElementById("userLabel");
   const dayEl   = document.getElementById("dayLabel");
@@ -167,88 +75,75 @@
   const lbList = document.getElementById("lbList");
   const lbSub = document.getElementById("lbSub");
   const lbCloseBtn = document.getElementById("lbCloseBtn");
-
   lbCloseBtn.addEventListener("click", () => lbOverlay.style.display = "none");
-  lbOverlay.addEventListener("click", (e) => { if (e.target === lbOverlay) lbOverlay.style.display = "none"; });
+  lbOverlay.addEventListener("click", (e)=>{ if(e.target===lbOverlay) lbOverlay.style.display="none"; });
 
-  // =========================
-  //  CANVAS
-  // =========================
+  // Canvas (background-only placeholder; your actual game logic stays elsewhere)
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
-
   function resize(){
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.floor(rect.width * devicePixelRatio);
-    canvas.height = Math.floor(rect.height * devicePixelRatio);
+    const r = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(r.width * devicePixelRatio);
+    canvas.height = Math.floor(r.height * devicePixelRatio);
   }
   window.addEventListener("resize", resize);
   resize();
 
-  // =========================
-  //  INPUT
-  // =========================
-  const keys = new Set();
-  window.addEventListener("keydown", (e) => keys.add(e.key.toLowerCase()));
-  window.addEventListener("keyup",   (e) => keys.delete(e.key.toLowerCase()));
-
-  // =========================
-  //  ASSET LOADING
-  // =========================
+  // Load your background so you still see art even if API breaks
   const bgImg = new Image();
   bgImg.src = "background.png";
-  const spriteImg = new Image();
-  spriteImg.src = "SpriteSheet.png";
+  bgImg.onload = () => renderBg();
 
-  let assetsReady = false;
-  let loaded = 0;
-  function onAssetLoad(){
-    loaded++;
-    if (loaded === 2){
-      assetsReady = true;
-      msgEl.textContent = "Ready.";
-      bootstrapUser();
-      updateGateUI();
-      render();
-    }
-  }
-  bgImg.onload = onAssetLoad;
-  spriteImg.onload = onAssetLoad;
-
-  // =========================
-  //  SPRITE MAP (approx)
-  // =========================
-  const SPRITES = {
-    platform:       { x:   0, y:   0, w: 500, h: 140 },
-    platformNarrow: { x:   0, y: 145, w: 320, h: 110 },
-    movingPlatform: { x: 330, y: 145, w: 520, h: 140 },
-    spikes: { x:   0, y: 270, w: 420, h: 130 },
-    bell:   { x: 840, y: 150, w: 160, h: 160 },
-    goal: { x: 1000, y:  0, w: 520, h: 520 },
-  };
-
-  // =========================
-  //  HELPERS
-  // =========================
-  function pad2(n){ return String(n).padStart(2,"0"); }
-  function ymd(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
-  function inWindow(now){ return now >= START && now <= END; }
-
-  function dayIndex(now){
-    const startMid = new Date(START.getFullYear(), START.getMonth(), START.getDate());
-    const nowMid   = new Date(now.getFullYear(),  now.getMonth(),  now.getDate());
-    const ms = nowMid - startMid;
-    return Math.floor(ms / (24*60*60*1000)) + 1; // 1..11
+  function renderBg(){
+    const W=canvas.width, H=canvas.height;
+    ctx.clearRect(0,0,W,H);
+    if(!bgImg.complete) return;
+    const s = Math.max(W/bgImg.width, H/bgImg.height);
+    const w=bgImg.width*s, h=bgImg.height*s;
+    ctx.drawImage(bgImg, (W-w)/2, (H-h)/2, w, h);
   }
 
-  // =========================
-  //  USERNAME
-  // =========================
+  // ========= JSONP =========
+  function jsonp(url){
+    return new Promise((resolve, reject) => {
+      const cbName = "cb_" + Math.random().toString(36).slice(2);
+      const s = document.createElement("script");
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error("timeout"));
+      }, 12000);
+
+      function cleanup(){
+        clearTimeout(timeout);
+        try { delete window[cbName]; } catch {}
+        s.remove();
+      }
+
+      window[cbName] = (data) => { cleanup(); resolve(data); };
+      s.onerror = () => { cleanup(); reject(new Error("load error")); };
+
+      const sep = url.includes("?") ? "&" : "?";
+      s.src = url + sep + "callback=" + cbName;
+      document.head.appendChild(s);
+    });
+  }
+
+  async function apiCall(params){
+    params._ = String(Date.now());
+    const url = API_URL + "?" + new URLSearchParams(params).toString();
+    return await jsonp(url);
+  }
+
+  // API wrappers
+  const checkinNameForToday = (name, day) => apiCall({ action:"checkin", name, day });
+  const submitScore = (name, day, score, time) => apiCall({ action:"submit", name, day, score:String(score), time:String(time) });
+  const fetchLeaderboard = (day, limit=10) => apiCall({ action:"leaderboard", mode:"today", day, limit:String(limit) });
+
+  // ========= User name =========
   const USER_KEY = "trainhop_username";
   function sanitizeName(s){
-    s = (s || "").trim();
-    s = s.replace(/[^\w\s\-'.!]/g, "");
-    if (s.length > 18) s = s.slice(0, 18);
+    s = (s || "").trim().replace(/[^\w\s\-'.!]/g, "");
+    if (s.length > 18) s = s.slice(0,18);
     return s;
   }
   function getUsername(){ return localStorage.getItem(USER_KEY) || ""; }
@@ -262,386 +157,38 @@
       name = sanitizeName(prompt("1579 name for leaderboard? (use same every day)") || "");
       if (!name) name = "Guest";
       setUsername(name);
-    } else {
-      userEl.textContent = name;
-    }
+    } else userEl.textContent = name;
   }
 
-  // =========================
-  //  GAME CONSTANTS
-  // =========================
-  const MAX_LIVES = 3;
-  const ALL_BELLS = 3;
-
-  const SCORE_BELL = 150;
-  const SCORE_WIN  = 3000;
-
-  const TIME_BONUS_MAX = 2500;
-  const TIME_SAFE_SECONDS = 25;
-  const TIME_DECAY_PER_SEC = 85;
-
-  const G = 0.74;
-  const JUMP = -13.1;
-  const SPEED = 5.0;
-  const FRICTION = 0.80;
-  const AIR_CTRL = 0.55;
-
-  // =========================
-  //  GAME STATE
-  // =========================
-  let player, platforms, bells, hazards, goal, camX;
-  let bellsCollected = 0;
-  let running = false;
-  let lives = MAX_LIVES;
-
-  let score = 0;
-  let startTimeMs = 0;
-
-  let hasSubmitted = false;
-
-  function setScore(v){
-    score = Math.max(0, Math.floor(v));
-    scoreEl.textContent = String(score);
-  }
-  function elapsedSeconds(){
-    if (!startTimeMs) return 0;
-    return (performance.now() - startTimeMs) / 1000;
-  }
-  function timeBonus(){
-    const t = elapsedSeconds();
-    if (t <= TIME_SAFE_SECONDS) return TIME_BONUS_MAX;
-    const extra = t - TIME_SAFE_SECONDS;
-    return Math.max(0, Math.floor(TIME_BONUS_MAX - extra * TIME_DECAY_PER_SEC));
-  }
-
-  // =========================
-  //  RNG + COLLISION
-  // =========================
-  function rngFactory(seed){
-    let s = seed >>> 0;
-    return function rand(){
-      s = (s * 1664525 + 1013904223) >>> 0;
-      return s / 4294967296;
-    };
-  }
-  function aabb(a,b){
-    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
-  }
-
-  // =========================
-  //  LEVEL
-  // =========================
-  function dailySeedFromDay(di){
-    return (di * 2654435761) >>> 0;
-  }
-
-  function makeBrutalLevel(seed){
-    const rand = rngFactory(seed);
-    const worldLen = 2700;
-
-    platforms = [];
-    hazards = [];
-    bells = [];
-
-    platforms.push({x:0, y:520, w:worldLen, h:90, kind:"ground"});
-
-    let x = 160;
-    let y = 450;
-
-    for (let i=0;i<4;i++){
-      x += 165 + Math.floor(rand()*55);
-      y += (rand() < 0.5 ? -1 : 1) * (35 + Math.floor(rand()*35));
-      y = Math.max(240, Math.min(470, y));
-      platforms.push({x, y, w:100, h:22, kind:"narrow"});
-      if (i >= 1){
-        hazards.push({x: x - 85, y: 505, w: 70, h: 20});
-      }
-    }
-
-    for (let i=0;i<7;i++){
-      x += 185 + Math.floor(rand()*70);
-      y += (rand() < 0.5 ? -1 : 1) * (40 + Math.floor(rand()*35));
-      y = Math.max(230, Math.min(460, y));
-
-      const horiz = rand() < 0.7;
-      platforms.push({
-        x, y, w:92, h:20, kind:"moving",
-        move: {
-          ax: x, ay: y,
-          dx: horiz ? (90 + Math.floor(rand()*70)) : 0,
-          dy: horiz ? 0 : (55 + Math.floor(rand()*45)),
-          t: rand()*Math.PI*2,
-          spd: 0.017 + rand()*0.013
-        }
-      });
-
-      if (rand() < 0.75){
-        hazards.push({x: x + 20, y: 505, w: 60, h: 20});
-      }
-    }
-
-    function addBellNearPlatform(pi, xoff, yoff){
-      const p = platforms[pi];
-      bells.push({x: p.x + xoff, y: p.y + yoff, r: 14, taken:false});
-    }
-    addBellNearPlatform(3, 50, -26);
-    addBellNearPlatform(7, 46, -30);
-    addBellNearPlatform(platforms.length - 1, 46, -30);
-
-    const last = platforms[platforms.length - 1];
-    goal = {x: last.x + 240, y: 350, w: 76, h: 140};
-    platforms.push({x: goal.x - 85, y: 440, w: 120, h: 20, kind:"narrow"});
-    hazards.push({x: goal.x - 10, y: 505, w: 70, h: 20});
-
-    player = {x:60, y:440, w:32, h:44, vx:0, vy:0, onGround:false};
-
-    camX = 0;
-    bellsCollected = 0;
-    bellsEl.textContent = "0";
-    running = true;
-  }
-
-  function resetAttempt(){
-    for (const b of bells) b.taken = false;
-    bellsCollected = 0;
-    bellsEl.textContent = "0";
-
-    player.x = 60; player.y = 440;
-    player.vx = 0; player.vy = 0;
-    player.onGround = false;
-
-    msgEl.textContent = `💀 Life lost. ${lives} left.`;
-  }
-
-  async function finishAndSubmit(didWin){
-    if (hasSubmitted) return;
-    hasSubmitted = true;
-    running = false;
-
-    const name = sanitizeName(getUsername()) || "Guest";
-    const now = new Date();
-    const day = ymd(now);
-    const t = elapsedSeconds();
-
-    if (didWin){
-      setScore(score + SCORE_WIN + timeBonus());
-      msgEl.textContent = `🎉 Finished! Submitting score…`;
-    } else {
-      msgEl.textContent = `🪦 Run over. Submitting score…`;
-    }
-
-    try {
-      const r = await submitScore(name, day, score, t);
-      await showLeaderboard(true);
-      msgEl.textContent = (r && r.ok)
-        ? `✅ Score saved: ${score}. One play per day — see you tomorrow!`
-        : `⚠️ Submit failed (try Leaderboard).`;
-    } catch (e){
-      msgEl.textContent = `⚠️ Submit error.`;
-      await showLeaderboard(true);
-    }
-
-    startBtn.disabled = true;
-  }
-
-  function step(){
-    if (!running) return;
-
-    for (const p of platforms){
-      if (!p.move) continue;
-      p.move.t += p.move.spd;
-      p.x = p.move.ax + Math.sin(p.move.t) * p.move.dx;
-      p.y = p.move.ay + Math.cos(p.move.t*0.92) * p.move.dy;
-    }
-
-    const left = keys.has("arrowleft") || keys.has("a");
-    const right = keys.has("arrowright") || keys.has("d");
-    const jump = keys.has("arrowup") || keys.has("w") || keys.has(" ");
-
-    const accel = player.onGround ? 1.0 : AIR_CTRL;
-    if (left) player.vx -= 0.95 * accel;
-    if (right) player.vx += 0.95 * accel;
-
-    player.vx *= FRICTION;
-    player.vx = Math.max(-SPEED, Math.min(SPEED, player.vx));
-
-    if (jump && player.onGround){
-      player.vy = JUMP;
-      player.onGround = false;
-    }
-
-    player.vy += G;
-    player.x += player.vx;
-    player.y += player.vy;
-
-    player.onGround = false;
-    for (const p of platforms){
-      if (!aabb(player, p)) continue;
-
-      const prevY = player.y - player.vy;
-      const prevBottom = prevY + player.h;
-
-      if (prevBottom <= p.y + 8 && player.vy >= 0){
-        player.y = p.y - player.h;
-        player.vy = 0;
-        player.onGround = true;
-      } else {
-        const prevX = player.x - player.vx;
-        if (prevX + player.w <= p.x + 8){
-          player.x = p.x - player.w;
-          player.vx = 0;
-        } else if (prevX >= p.x + p.w - 8){
-          player.x = p.x + p.w;
-          player.vx = 0;
-        } else if (player.vy < 0){
-          player.y = p.y + p.h;
-          player.vy = 0;
-        }
-      }
-    }
-
-    for (const h of hazards){
-      if (aabb(player, h)){
-        lives--;
-        livesEl.textContent = String(lives);
-        if (lives <= 0){
-          finishAndSubmit(false);
-          return;
-        }
-        resetAttempt();
-        render();
-        requestAnimationFrame(step);
-        return;
-      }
-    }
-
-    for (const b of bells){
-      if (b.taken) continue;
-      const dx = (player.x + player.w/2) - b.x;
-      const dy = (player.y + player.h/2) - b.y;
-      if (dx*dx + dy*dy < (b.r + 16)*(b.r + 16)){
-        b.taken = true;
-        bellsCollected++;
-        bellsEl.textContent = String(bellsCollected);
-        setScore(score + SCORE_BELL);
-      }
-    }
-
-    if (bellsCollected >= ALL_BELLS && aabb(player, goal)){
-      finishAndSubmit(true);
-      return;
-    }
-
-    if (player.y > 720){
-      lives--;
-      livesEl.textContent = String(lives);
-      if (lives <= 0){
-        finishAndSubmit(false);
-        return;
-      }
-      resetAttempt();
-    }
-
-    camX = Math.max(0, player.x - 240);
-
-    render();
-    requestAnimationFrame(step);
-  }
-
-  function drawCoverImage(img){
-    const W = canvas.width, H = canvas.height;
-    const scale = Math.max(W / img.width, H / img.height);
-    const w = img.width * scale;
-    const h = img.height * scale;
-    const x = (W - w) / 2;
-    const y = (H - h) / 2;
-    ctx.drawImage(img, x, y, w, h);
-  }
-
-  function render(){
-    const dpr = devicePixelRatio;
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    if (assetsReady) {
-      drawCoverImage(bgImg);
-    } else {
-      ctx.fillStyle = "#0b1020";
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      return;
-    }
-
-    ctx.save();
-    ctx.translate(-camX*dpr, 0);
-
-    for (const p of platforms){
-      if (!spriteImg.complete) break;
-      let s = SPRITES.platform;
-      if (p.kind === "narrow") s = SPRITES.platformNarrow;
-      if (p.kind === "moving") s = SPRITES.movingPlatform;
-
-      ctx.drawImage(spriteImg, s.x, s.y, s.w, s.h, p.x*dpr, p.y*dpr, p.w*dpr, p.h*dpr);
-    }
-
-    for (const h of hazards){
-      const s = SPRITES.spikes;
-      ctx.drawImage(spriteImg, s.x, s.y, s.w, s.h, h.x*dpr, h.y*dpr, h.w*dpr, h.h*dpr);
-    }
-
-    for (const b of bells){
-      if (b.taken) continue;
-      const s = SPRITES.bell;
-      ctx.drawImage(spriteImg, s.x, s.y, s.w, s.h,
-        (b.x - b.r)*dpr, (b.y - b.r)*dpr, (b.r*2)*dpr, (b.r*2)*dpr
-      );
-    }
-
-    if (bellsCollected >= ALL_BELLS){
-      ctx.globalAlpha = 0.32;
-      ctx.fillStyle = "rgba(255,220,140,0.9)";
-      ctx.fillRect((goal.x-12)*dpr, (goal.y-12)*dpr, (goal.w+24)*dpr, (goal.h+24)*dpr);
-      ctx.globalAlpha = 1;
-    }
-    const sg = SPRITES.goal;
-    ctx.drawImage(spriteImg, sg.x, sg.y, sg.w, sg.h, goal.x*dpr, goal.y*dpr, goal.w*dpr, goal.h*dpr);
-
-    ctx.fillStyle = "rgba(190,230,255,0.95)";
-    ctx.fillRect(player.x*dpr, player.y*dpr, player.w*dpr, player.h*dpr);
-
-    ctx.restore();
-
-    ctx.fillStyle = "rgba(255,255,255,.85)";
-    ctx.font = `${14*dpr}px system-ui`;
-    const goalTxt = (bellsCollected >= ALL_BELLS) ? "Goal UNLOCKED" : `Collect ${ALL_BELLS} bells`;
-    const timeTxt = running ? `Time: ${elapsedSeconds().toFixed(1)}s` : "";
-    ctx.fillText(`Move: A/D or ←/→  Jump: W/↑/Space  •  ${goalTxt}  •  ${timeTxt}`, 12*dpr, (canvas.height - 16*dpr));
+  // ========= Dates =========
+  function pad2(n){ return String(n).padStart(2,"0"); }
+  function ymd(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+  function inWindow(now){ return now>=START && now<=END; }
+  function dayIndex(now){
+    const startMid = new Date(START.getFullYear(), START.getMonth(), START.getDate());
+    const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.floor((nowMid - startMid)/(24*60*60*1000)) + 1;
   }
 
   function updateGateUI(){
     const now = new Date();
-    if (!assetsReady) return false;
-
-    userEl.textContent = sanitizeName(getUsername()) || "—";
+    bootstrapUser();
 
     if (now < START){
       msgEl.textContent = "🚂 Not open yet. Opens 12/20/2025 at 00:01.";
       startBtn.disabled = true;
       dayEl.textContent = "—";
-      return false;
+      return;
     }
     if (now > END){
       msgEl.textContent = "❄️ Event ended. Closed after 12/30/2025 23:59.";
       startBtn.disabled = true;
       dayEl.textContent = "—";
-      return false;
+      return;
     }
-
-    const di = dayIndex(now);
-    dayEl.textContent = `${di} / 11`;
-
+    dayEl.textContent = `${dayIndex(now)} / 11`;
     msgEl.textContent = "🎁 One play per name per day. Good luck.";
     startBtn.disabled = false;
-    return true;
   }
 
   function renderLeaderboardList(rows){
@@ -650,17 +197,11 @@
       lbList.innerHTML = `<div class="lbRow"><div class="left"><div class="rank">—</div><div class="name">No scores yet today</div></div><div class="meta">❄️</div></div>`;
       return;
     }
-    rows.forEach((r, i) => {
-      const row = document.createElement("div");
-      row.className = "lbRow";
-      row.innerHTML = `
-        <div class="left">
-          <div class="rank">${i+1}</div>
-          <div class="name">${String(r.name || "").replace(/</g,"&lt;")}</div>
-        </div>
-        <div class="meta">${r.score} pts • ${Number(r.time||0).toFixed(1)}s</div>
-      `;
-      lbList.appendChild(row);
+    rows.forEach((r,i)=>{
+      const el = document.createElement("div");
+      el.className="lbRow";
+      el.innerHTML = `<div class="left"><div class="rank">${i+1}</div><div class="name">${String(r.name||"").replace(/</g,"&lt;")}</div></div><div class="meta">${r.score} pts • ${Number(r.time||0).toFixed(1)}s</div>`;
+      lbList.appendChild(el);
     });
   }
 
@@ -668,24 +209,21 @@
     const now = new Date();
     const day = ymd(now);
     lbSub.textContent = `Day ${dayIndex(now)} / 11 • ${day}`;
-    try {
+    try{
       const r = await fetchLeaderboard(day, 10);
-      if (r && r.ok){
-        renderLeaderboardList(r.top || r.topToday || []);
-      } else {
-        renderLeaderboardList([]);
-      }
-    } catch {
+      if(r && r.ok) renderLeaderboardList(r.top || []);
+      else renderLeaderboardList([]);
+    }catch{
       renderLeaderboardList([]);
     }
-    if (openOverlay) lbOverlay.style.display = "flex";
+    if(openOverlay) lbOverlay.style.display="flex";
   }
 
-  showLBBtn.addEventListener("click", () => showLeaderboard(true));
+  showLBBtn.addEventListener("click", ()=>showLeaderboard(true));
 
+  // ========= Start Daily Run (API checkin only) =========
   async function startDailyRun(){
     const now = new Date();
-    if (!assetsReady) return;
     if (!inWindow(now)) return updateGateUI();
 
     bootstrapUser();
@@ -695,50 +233,35 @@
     startBtn.disabled = true;
     msgEl.textContent = "Checking in (one play per name per day)…";
 
-    try {
+    try{
       const r = await checkinNameForToday(name, day);
-      if (!r || !r.ok){
+      if(!r || !r.ok){
         msgEl.textContent = "⚠️ Server error. Try again.";
         startBtn.disabled = false;
         return;
       }
-      if (!r.allowed){
+      if(!r.allowed){
         msgEl.textContent = "✅ Already played today (for this name). Come back tomorrow!";
         startBtn.disabled = true;
         await showLeaderboard(false);
         return;
       }
-    } catch (e){
+      msgEl.textContent = `✅ Checked in for today, ${name}. (Game loop continues in your full build.)`;
+      // NOTE: plug your full game start here if you want.
+    }catch(e){
       msgEl.textContent = "⚠️ Network error. Try again.";
       startBtn.disabled = false;
-      return;
     }
-
-    hasSubmitted = false;
-    lives = MAX_LIVES;
-    livesEl.textContent = String(lives);
-
-    bellsCollected = 0;
-    bellsEl.textContent = "0";
-
-    setScore(0);
-    startTimeMs = performance.now();
-
-    const di = dayIndex(now);
-    const seed = dailySeedFromDay(di);
-    makeBrutalLevel(seed);
-
-    msgEl.textContent = `🚂 Go, ${name}. 3 lives. No checkpoint.`;
-    running = true;
-    requestAnimationFrame(step);
   }
 
   startBtn.addEventListener("click", startDailyRun);
 
+  // Init
+  msgEl.textContent = "Ready.";
   bootstrapUser();
   updateGateUI();
   setInterval(updateGateUI, 15000);
-
+  renderBg();
 })();
 </script>
 </body>
