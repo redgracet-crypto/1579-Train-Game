@@ -13,6 +13,7 @@
     button:hover{background:rgba(255,255,255,.18)}
     button:disabled{opacity:.45;cursor:not-allowed}
     canvas{width:100%;height:100%;display:block}
+
     #lbOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:9999}
     #lbCard{width:min(520px,92vw);background:rgba(10,12,22,.92);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:16px;box-shadow:0 18px 40px rgba(0,0,0,.45)}
     #lbCard h2{margin:0 0 10px 0;font-size:18px}
@@ -54,7 +55,7 @@
 
 <script>
 (() => {
-  // ✅ PASTE YOUR NEW /exec URL HERE
+  // ✅ WORKING API URL (leave exactly like this)
   const API_URL = "https://script.google.com/macros/s/AKfycbwQQCcwb4AQSDFsoGCN6jxHrU2An58X6df0ZIfH_fJ7F4Ae1isuxz_fQaS2dv7FEMOJ-A/exec";
 
   // Event window
@@ -75,10 +76,11 @@
   const lbList = document.getElementById("lbList");
   const lbSub = document.getElementById("lbSub");
   const lbCloseBtn = document.getElementById("lbCloseBtn");
+
   lbCloseBtn.addEventListener("click", () => lbOverlay.style.display = "none");
   lbOverlay.addEventListener("click", (e)=>{ if(e.target===lbOverlay) lbOverlay.style.display="none"; });
 
-  // Canvas (background-only placeholder; your actual game logic stays elsewhere)
+  // Canvas (just to keep your background visible)
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
   function resize(){
@@ -89,7 +91,6 @@
   window.addEventListener("resize", resize);
   resize();
 
-  // Load your background so you still see art even if API breaks
   const bgImg = new Image();
   bgImg.src = "background.png";
   bgImg.onload = () => renderBg();
@@ -103,7 +104,7 @@
     ctx.drawImage(bgImg, (W-w)/2, (H-h)/2, w, h);
   }
 
-  // ========= JSONP =========
+  // ========= JSONP (NO CORS ISSUES) =========
   function jsonp(url){
     return new Promise((resolve, reject) => {
       const cbName = "cb_" + Math.random().toString(36).slice(2);
@@ -136,7 +137,6 @@
 
   // API wrappers
   const checkinNameForToday = (name, day) => apiCall({ action:"checkin", name, day });
-  const submitScore = (name, day, score, time) => apiCall({ action:"submit", name, day, score:String(score), time:String(time) });
   const fetchLeaderboard = (day, limit=10) => apiCall({ action:"leaderboard", mode:"today", day, limit:String(limit) });
 
   // ========= User name =========
@@ -221,7 +221,6 @@
 
   showLBBtn.addEventListener("click", ()=>showLeaderboard(true));
 
-  // ========= Start Daily Run (API checkin only) =========
   async function startDailyRun(){
     const now = new Date();
     if (!inWindow(now)) return updateGateUI();
@@ -246,8 +245,11 @@
         await showLeaderboard(false);
         return;
       }
-      msgEl.textContent = `✅ Checked in for today, ${name}. (Game loop continues in your full build.)`;
-      // NOTE: plug your full game start here if you want.
+
+      msgEl.textContent = `✅ Checked in for today, ${name}.`;
+      // This safe build only confirms check-in + leaderboard.
+      // Your full platformer game loop plugs in after this line.
+
     }catch(e){
       msgEl.textContent = "⚠️ Network error. Try again.";
       startBtn.disabled = false;
@@ -266,4 +268,3 @@
 </script>
 </body>
 </html>
-
